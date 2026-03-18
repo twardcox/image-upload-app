@@ -78,6 +78,16 @@ export async function GET(request: Request) {
         height: image.height,
         createdAt: image.createdAt,
         tags: image.tags.map((t) => t.tag),
+        // EXIF metadata
+        dateTaken: image.dateTaken,
+        gpsLatitude: image.gpsLatitude,
+        gpsLongitude: image.gpsLongitude,
+        cameraMake: image.cameraMake,
+        cameraModel: image.cameraModel,
+        fNumber: image.fNumber,
+        exposureTime: image.exposureTime,
+        iso: image.iso,
+        focalLength: image.focalLength,
       })),
       pagination: {
         page,

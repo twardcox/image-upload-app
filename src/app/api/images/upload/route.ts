@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import exifr from 'exifr';
+import { processImageForFaces } from '@/lib/faceDetection';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -52,6 +54,53 @@ export async function POST(request: Request) {
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Extract EXIF metadata from original image
+    let exifData: {
+      dateTaken?: Date;
+      gpsLatitude?: number;
+      gpsLongitude?: number;
+      cameraMake?: string;
+      cameraModel?: string;
+      fNumber?: number;
+      exposureTime?: string;
+      iso?: number;
+      focalLength?: number;
+    } = {};
+
+    try {
+      const exif = await exifr.parse(buffer, {
+        pick: [
+          'DateTimeOriginal',
+          'CreateDate',
+          'GPSLatitude',
+          'GPSLongitude',
+          'Make',
+          'Model',
+          'FNumber',
+          'ExposureTime',
+          'ISO',
+          'FocalLength',
+        ],
+      });
+
+      if (exif) {
+        exifData = {
+          dateTaken: exif.DateTimeOriginal || exif.CreateDate || undefined,
+          gpsLatitude: exif.GPSLatitude || undefined,
+          gpsLongitude: exif.GPSLongitude || undefined,
+          cameraMake: exif.Make || undefined,
+          cameraModel: exif.Model || undefined,
+          fNumber: exif.FNumber || undefined,
+          exposureTime: exif.ExposureTime ? String(exif.ExposureTime) : undefined,
+          iso: exif.ISO || undefined,
+          focalLength: exif.FocalLength || undefined,
+        };
+      }
+    } catch (exifError) {
+      console.warn('EXIF extraction failed (non-critical):', exifError);
+      // Continue even if EXIF extraction fails
+    }
 
     // Process image with sharp
     let processedImage = sharp(buffer);
@@ -106,7 +155,24 @@ export async function POST(request: Request) {
         width: optimizedMetadata.width || null,
         height: optimizedMetadata.height || null,
         userId: session.user.id,
+        // EXIF metadata
+        dateTaken: exifData.dateTaken || null,
+        gpsLatitude: exifData.gpsLatitude || null,
+        gpsLongitude: exifData.gpsLongitude || null,
+        cameraMake: exifData.cameraMake || null,
+        cameraModel: exifData.cameraModel || null,
+        fNumber: exifData.fNumber || null,
+        exposureTime: exifData.exposureTime || null,
+        iso: exifData.iso || null,
+        focalLength: exifData.focalLength || null,
       },
+    });
+
+    // Trigger async face detection (non-blocking)
+    // Use optimized buffer for face detection since it's smaller and faster
+    processImageForFaces(image.id, optimizedBuffer).catch((error) => {
+      console.error('Async face detection error:', error);
+      // Don't fail the upload if face detection fails
     });
 
     return NextResponse.json({
@@ -120,6 +186,12 @@ export async function POST(request: Request) {
         width: image.width,
         height: image.height,
         createdAt: image.createdAt,
+        // Include EXIF metadata in response
+        dateTaken: image.dateTaken,
+        gpsLatitude: image.gpsLatitude,
+        gpsLongitude: image.gpsLongitude,
+        cameraMake: image.cameraMake,
+        cameraModel: image.cameraModel,
       },
     }, { status: 201 });
 

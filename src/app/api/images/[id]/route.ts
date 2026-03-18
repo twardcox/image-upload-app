@@ -55,6 +55,16 @@ export async function GET(
         createdAt: image.createdAt,
         updatedAt: image.updatedAt,
         tags: image.tags.map((t) => t.tag),
+        // EXIF metadata
+        dateTaken: image.dateTaken,
+        gpsLatitude: image.gpsLatitude,
+        gpsLongitude: image.gpsLongitude,
+        cameraMake: image.cameraMake,
+        cameraModel: image.cameraModel,
+        fNumber: image.fNumber,
+        exposureTime: image.exposureTime,
+        iso: image.iso,
+        focalLength: image.focalLength,
       },
     });
   } catch (error) {

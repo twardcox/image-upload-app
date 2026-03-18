@@ -58,7 +58,7 @@ export async function detectFaces(imageBuffer: Buffer) {
 
     // Detect faces with landmarks and descriptors
     const detections = await faceapi
-      .detectAllFaces(img as any, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+      .detectAllFaces(img as unknown as HTMLImageElement, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
       .withFaceLandmarks()
       .withFaceDescriptors();
 
@@ -86,7 +86,7 @@ function euclideanDistance(desc1: number[], desc2: number[]): number {
 /**
  * Find matching face cluster or create new one
  */
-export async function clusterFace(descriptor: number[], _imageId: string) {
+export async function clusterFace(descriptor: number[]) {
   // Get all existing faces
   const existingFaces = await prisma.face.findMany({
     select: {
@@ -198,7 +198,7 @@ export async function processImageForFaces(imageId: string, imageBuffer: Buffer)
     // Process each detected face
     for (const face of faces) {
       // Cluster face to find or create Face record
-      const faceId = await clusterFace(face.descriptor, imageId);
+      const faceId = await clusterFace(face.descriptor);
 
       // Extract and save thumbnail
       await extractFaceThumbnail(imageBuffer, face.box, faceId);

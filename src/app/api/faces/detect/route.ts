@@ -76,7 +76,7 @@ export async function POST(request: Request) {
           await prisma.imageFace.deleteMany({ where: { imageId: image.id } });
 
           // Process faces
-          await processImageForFaces(image.id, imageBuffer);
+          await processImageForFaces(image.id, imageBuffer, session.user.id);
 
           // Get face count for this image
           const faceCount = await prisma.imageFace.count({

@@ -170,7 +170,7 @@ export async function POST(request: Request) {
 
     // Trigger async face detection (non-blocking)
     // Use optimized buffer for face detection since it's smaller and faster
-    processImageForFaces(image.id, optimizedBuffer).catch((error) => {
+    processImageForFaces(image.id, optimizedBuffer, session.user.id).catch((error) => {
       console.error('Async face detection error:', error);
       // Don't fail the upload if face detection fails
     });

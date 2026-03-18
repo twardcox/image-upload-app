@@ -138,7 +138,12 @@ export function resetClusteringStats() {
  * Find matching face cluster or create new one
  * Enhanced with descriptor normalization and cluster descriptor updating
  */
-export async function clusterFace(descriptor: number[], confidence: number = 1.0) {
+export async function clusterFace(
+  descriptor: number[],
+  confidence: number = 1.0,
+  excludedFaceIds: string[] = [],
+  userId?: string
+) {
   clusteringStats.totalDetections++;
 
   // Reject low-confidence detections
@@ -153,8 +158,19 @@ export async function clusterFace(descriptor: number[], confidence: number = 1.0
   // Normalize descriptor for consistent comparison
   const normalizedDescriptor = normalizeDescriptor(descriptor);
 
-  // Get all existing faces
+  // Get existing faces for this user only (via ImageFace -> Image ownership)
   const existingFaces = await prisma.face.findMany({
+    where: userId
+      ? {
+          images: {
+            some: {
+              image: {
+                userId,
+              },
+            },
+          },
+        }
+      : undefined,
     select: {
       id: true,
       faceDescriptor: true,
@@ -166,6 +182,10 @@ export async function clusterFace(descriptor: number[], confidence: number = 1.0
   let closestFace: { id: string; distance: number; imageCount: number } | null = null;
 
   for (const face of existingFaces) {
+    if (excludedFaceIds.includes(face.id)) {
+      continue;
+    }
+
     const existingDescriptor = normalizeDescriptor(face.faceDescriptor as number[]);
     const distance = euclideanDistance(normalizedDescriptor, existingDescriptor);
 
@@ -285,7 +305,11 @@ export async function extractFaceThumbnail(
  * Process image for face detection and clustering
  * This runs asynchronously after image upload
  */
-export async function processImageForFaces(imageId: string, imageBuffer: Buffer) {
+export async function processImageForFaces(
+  imageId: string,
+  imageBuffer: Buffer,
+  userId?: string
+) {
   try {
     console.log(`Starting face detection for image ${imageId}...`);
 
@@ -301,18 +325,26 @@ export async function processImageForFaces(imageId: string, imageBuffer: Buffer)
 
     let processedCount = 0;
     let rejectedCount = 0;
+    const assignedFaceIdsInImage = new Set<string>();
 
     // Process each detected face
     for (const face of faces) {
       try {
         // Cluster face to find or create Face record (with confidence filtering)
-        const faceId = await clusterFace(face.descriptor, face.confidence);
+        const faceId = await clusterFace(
+          face.descriptor,
+          face.confidence,
+          Array.from(assignedFaceIdsInImage),
+          userId
+        );
 
         // Skip if face was rejected due to low confidence
         if (!faceId) {
           rejectedCount++;
           continue;
         }
+
+        assignedFaceIdsInImage.add(faceId);
 
         processedCount++;
 

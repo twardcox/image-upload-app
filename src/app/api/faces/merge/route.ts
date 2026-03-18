@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { reclusterAllFaces } from '@/lib/faceDetection';
 
 /**
  * POST /api/faces/merge
@@ -10,6 +11,7 @@ import { prisma } from '@/lib/prisma';
  * - sourceFaceIds: string[] (face IDs to merge from)
  * - targetFaceId: string (face ID to merge into)
  * - newName?: string (optional name for merged face)
+ * - autoRecluster?: boolean (optional, trigger re-clustering after merge)
  */
 export async function POST(request: Request) {
   try {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { sourceFaceIds, targetFaceId, newName } = body;
+    const { sourceFaceIds, targetFaceId, newName, autoRecluster } = body;
 
     // Validate input
     if (!Array.isArray(sourceFaceIds) || sourceFaceIds.length === 0) {
@@ -154,9 +156,27 @@ export async function POST(request: Request) {
       return updatedFace;
     });
 
+    // Optionally trigger re-clustering after merge
+    let reclusterResult = null;
+    if (autoRecluster === true) {
+      console.log('Auto-reclustering triggered after merge...');
+      try {
+        reclusterResult = await reclusterAllFaces();
+      } catch (error) {
+        console.error('Auto-recluster failed:', error);
+        // Don't fail the merge if re-clustering fails
+      }
+    }
+
     return NextResponse.json({
       message: 'Faces merged successfully',
       face: result,
+      ...(reclusterResult && {
+        recluster: {
+          merged: reclusterResult.merged,
+          remainingClusters: reclusterResult.clusters,
+        },
+      }),
     });
   } catch (error) {
     console.error('Merge faces error:', error);

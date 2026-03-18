@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { H1, Muted } from '@/components/ui/typography';
 import UploadDropzone from '@/components/UploadDropzone';
 import ImageCard from '@/components/ImageCard';
 import MetadataFiltersComponent, {
@@ -214,7 +215,7 @@ const GalleryPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">My Images</h1>
+        <H1>My Images</H1>
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
             <Button>Upload Image</Button>
@@ -292,10 +293,10 @@ const GalleryPage = () => {
         </div>
       ) : images.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No images found</p>
-          <p className="text-gray-400 text-sm mt-2">
+          <Muted className="text-lg">No images found</Muted>
+          <Muted className="mt-2">
             Upload your first image to get started
-          </p>
+          </Muted>
         </div>
       ) : (
         <>

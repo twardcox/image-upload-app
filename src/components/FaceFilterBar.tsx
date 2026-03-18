@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { H3, Muted } from '@/components/ui/typography';
 
 interface Face {
   id: string;
@@ -142,7 +143,7 @@ const FaceFilterBar = ({
     return (
       <div className="border-b pb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700">Filter by Face</h3>
+          <H3>Filter by Face</H3>
           <Button
             size="sm"
             variant="outline"
@@ -152,10 +153,10 @@ const FaceFilterBar = ({
             {isDetecting ? 'Detecting...' : 'Detect Faces'}
           </Button>
         </div>
-        <p className="text-sm text-gray-500">
+        <Muted>
           No faces detected yet. Upload images and click &quot;Detect Faces&quot; to
           start face detection.
-        </p>
+        </Muted>
       </div>
     );
   }
@@ -163,14 +164,14 @@ const FaceFilterBar = ({
   return (
     <div className="border-b pb-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-700">
+        <H3>
           Filter by Face
           {selectedFaceIds.length > 0 && (
             <Badge variant="secondary" className="ml-2">
               {selectedFaceIds.length}
             </Badge>
           )}
-        </h3>
+        </H3>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -285,12 +286,14 @@ const FaceFilterBar = ({
             <button
               key={face.id}
               onClick={() => onFaceSelect(face.id)}
-              className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+              className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg transition-all cursor-pointer ${
                 isSelected
                   ? 'bg-blue-50 ring-2 ring-blue-500'
                   : 'hover:bg-gray-50'
               }`}
               title={getDisplayName(face)}
+              aria-label={`Select ${getDisplayName(face)}`}
+              aria-pressed={isSelected}
             >
               <Image
                 src={face.thumbnailPath}

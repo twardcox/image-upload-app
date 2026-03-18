@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Muted, P } from '@/components/ui/typography';
 
 interface Tag {
   id: string;
@@ -251,28 +252,28 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-sm text-gray-500">Name</p>
-                <p className="font-medium">{image.originalName}</p>
+                <Muted>Name</Muted>
+                <P className="font-medium">{image.originalName}</P>
               </div>
               <div>
-                <p className="text-sm text-gray-500">File Size</p>
-                <p className="font-medium">{formatSize(image.size)}</p>
+                <Muted>File Size</Muted>
+                <P className="font-medium">{formatSize(image.size)}</P>
               </div>
               {image.width && image.height && (
                 <div>
-                  <p className="text-sm text-gray-500">Dimensions</p>
-                  <p className="font-medium">
+                  <Muted>Dimensions</Muted>
+                  <P className="font-medium">
                     {image.width} × {image.height} px
-                  </p>
+                  </P>
                 </div>
               )}
               <div>
-                <p className="text-sm text-gray-500">Type</p>
-                <p className="font-medium">{image.mimeType}</p>
+                <Muted>Type</Muted>
+                <P className="font-medium">{image.mimeType}</P>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Uploaded</p>
-                <p className="font-medium">{formatDate(image.createdAt)}</p>
+                <Muted>Uploaded</Muted>
+                <P className="font-medium">{formatDate(image.createdAt)}</P>
               </div>
             </CardContent>
           </Card>
@@ -341,7 +342,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
             </CardHeader>
             <CardContent>
               {image.tags.length === 0 ? (
-                <p className="text-sm text-gray-500">No tags assigned</p>
+                <Muted>No tags assigned</Muted>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {image.tags.map((tag) => (

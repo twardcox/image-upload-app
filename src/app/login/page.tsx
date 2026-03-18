@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Muted } from '@/components/ui/typography';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -87,12 +88,12 @@ const LoginPage = () => {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
-            <p className="text-sm text-center text-gray-600">
+            <Muted className="text-center">
               Don&apos;t have an account?{' '}
               <Link href="/signup" className="text-blue-600 hover:underline">
                 Sign up
               </Link>
-            </p>
+            </Muted>
           </CardFooter>
         </form>
       </Card>

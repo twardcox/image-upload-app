@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
+import { H3, Muted } from '@/components/ui/typography';
 
 export interface MetadataFilters {
   dateFrom?: string;
@@ -114,7 +115,7 @@ const MetadataFiltersComponent = ({
     <div className="flex flex-wrap items-center gap-3">
       {/* Sort Options */}
       <div className="flex items-center gap-2">
-        <Label className="text-sm text-gray-600">Sort:</Label>
+        <Muted>Sort:</Muted>
         <Select
           value={`${filters.sortBy}_${filters.sortOrder}`}
           onValueChange={handleSortChange}
@@ -153,7 +154,7 @@ const MetadataFiltersComponent = ({
         <PopoverContent className="w-80" align="start">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium">Filters</h4>
+              <H3 className="text-foreground">Filters</H3>
               {activeFilterCount > 0 && (
                 <Button
                   variant="ghost"
@@ -256,7 +257,8 @@ const MetadataFiltersComponent = ({
           From: {new Date(filters.dateFrom).toLocaleDateString()}
           <button
             onClick={() => handleDateFromChange('')}
-            className="ml-1 hover:text-red-600"
+            className="ml-1 hover:text-red-600 cursor-pointer"
+            aria-label="Clear date from filter"
           >
             ×
           </button>
@@ -267,7 +269,8 @@ const MetadataFiltersComponent = ({
           To: {new Date(filters.dateTo).toLocaleDateString()}
           <button
             onClick={() => handleDateToChange('')}
-            className="ml-1 hover:text-red-600"
+            className="ml-1 hover:text-red-600 cursor-pointer"
+            aria-label="Clear date to filter"
           >
             ×
           </button>
@@ -278,7 +281,8 @@ const MetadataFiltersComponent = ({
           📷 {filters.cameraMake} {filters.cameraModel}
           <button
             onClick={() => handleCameraChange('all')}
-            className="ml-1 hover:text-red-600"
+            className="ml-1 hover:text-red-600 cursor-pointer"
+            aria-label="Clear camera filter"
           >
             ×
           </button>
@@ -289,7 +293,8 @@ const MetadataFiltersComponent = ({
           📍 {filters.hasGPS ? 'With location' : 'No location'}
           <button
             onClick={() => handleGPSFilterChange('all')}
-            className="ml-1 hover:text-red-600"
+            className="ml-1 hover:text-red-600 cursor-pointer"
+            aria-label="Clear location filter"
           >
             ×
           </button>

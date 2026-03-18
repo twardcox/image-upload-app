@@ -62,23 +62,37 @@ model VerificationToken {
 
 // Application Models
 model Image {
-  id          String   @id @default(cuid())
-  filename    String
+  id           String   @id @default(cuid())
+  filename     String
   originalName String
-  filepath    String
-  mimeType    String
-  size        Int
-  width       Int?
-  height      Int?
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  filepath     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tags ImageTag[]
+  // EXIF Metadata Fields
+  dateTaken     DateTime? // Date/time photo was originally taken
+  gpsLatitude   Float?    // GPS latitude coordinate
+  gpsLongitude  Float?    // GPS longitude coordinate
+  cameraMake    String?   // Camera manufacturer (e.g., "Apple", "Canon")
+  cameraModel   String?   // Camera model (e.g., "iPhone 14 Pro")
+  fNumber       Float?    // Aperture f-number (e.g., 1.8)
+  exposureTime  String?   // Shutter speed (e.g., "1/60")
+  iso           Int?      // ISO sensitivity (e.g., 100, 400)
+  focalLength   Float?    // Focal length in mm (e.g., 26.0)
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags  ImageTag[]
+  faces ImageFace[]
 
   @@index([userId])
   @@index([createdAt])
+  @@index([dateTaken])
+  @@index([gpsLatitude, gpsLongitude])
 }
 
 model Tag {
@@ -98,4 +112,33 @@ model ImageTag {
   @@id([imageId, tagId])
   @@index([imageId])
   @@index([tagId])
+}
+
+// Face Detection Models
+model Face {
+  id             String   @id @default(cuid())
+  name           String?  // User-provided label for the person
+  faceDescriptor Json     // 128D face descriptor array from face-api.js for clustering
+  thumbnailPath  String   // Path to cropped face thumbnail image
+  imageCount     Int      @default(0) // Cached count of images containing this face
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  images ImageFace[]
+
+  @@index([name])
+}
+
+model ImageFace {
+  imageId     String
+  faceId      String
+  boundingBox Json   // {x, y, width, height} coordinates of face in image
+  confidence  Float  // Face detection confidence score (0-1)
+
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  face  Face  @relation(fields: [faceId], references: [id], onDelete: Cascade)
+
+  @@id([imageId, faceId])
+  @@index([imageId])
+  @@index([faceId])
 }

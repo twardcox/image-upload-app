@@ -29,6 +29,16 @@ interface ImageData {
   height: number | null;
   createdAt: string;
   tags?: Tag[];
+  // EXIF metadata
+  dateTaken?: string | null;
+  gpsLatitude?: number | null;
+  gpsLongitude?: number | null;
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  fNumber?: number | null;
+  exposureTime?: string | null;
+  iso?: number | null;
+  focalLength?: number | null;
 }
 
 interface ImageCardProps {
@@ -93,6 +103,29 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
     });
   };
 
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatGPS = (lat: number, lng: number) => {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lngDir = lng >= 0 ? 'E' : 'W';
+    return `${Math.abs(lat).toFixed(4)}°${latDir}, ${Math.abs(lng).toFixed(4)}°${lngDir}`;
+  };
+
+  const hasExifData = Boolean(
+    image.cameraMake ||
+    image.cameraModel ||
+    image.dateTaken ||
+    image.gpsLatitude
+  );
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <Link href={`/images/${image.id}`}>
@@ -145,6 +178,45 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
                 {tag.name}
               </Badge>
             ))}
+          </div>
+        )}
+        {hasExifData && (
+          <div className="w-full pt-2 border-t space-y-1">
+            {image.dateTaken && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="opacity-70">📅</span>
+                <span className="truncate">{formatDateTime(image.dateTaken)}</span>
+              </div>
+            )}
+            {(image.cameraMake || image.cameraModel) && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="opacity-70">📷</span>
+                <span className="truncate">
+                  {[image.cameraMake, image.cameraModel]
+                    .filter(Boolean)
+                    .join(' ')}
+                </span>
+              </div>
+            )}
+            {image.gpsLatitude !== null &&
+              image.gpsLatitude !== undefined &&
+              image.gpsLongitude !== null &&
+              image.gpsLongitude !== undefined && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="opacity-70">📍</span>
+                  <span className="truncate font-mono text-[10px]">
+                    {formatGPS(image.gpsLatitude, image.gpsLongitude)}
+                  </span>
+                </div>
+              )}
+            {(image.fNumber || image.iso || image.exposureTime) && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                {image.fNumber && <span>f/{image.fNumber}</span>}
+                {image.exposureTime && <span>{image.exposureTime}s</span>}
+                {image.iso && <span>ISO {image.iso}</span>}
+                {image.focalLength && <span>{image.focalLength}mm</span>}
+              </div>
+            )}
           </div>
         )}
       </CardFooter>

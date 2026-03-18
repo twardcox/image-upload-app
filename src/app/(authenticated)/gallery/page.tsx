@@ -34,6 +34,16 @@ interface ImageData {
   height: number | null;
   createdAt: string;
   tags?: Tag[];
+  // EXIF metadata
+  dateTaken?: string | null;
+  gpsLatitude?: number | null;
+  gpsLongitude?: number | null;
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  fNumber?: number | null;
+  exposureTime?: string | null;
+  iso?: number | null;
+  focalLength?: number | null;
 }
 
 interface PaginationData {

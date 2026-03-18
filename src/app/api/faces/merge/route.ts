@@ -170,7 +170,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: 'Faces merged successfully',
-      face: result,
+      face: {
+        ...result,
+        thumbnailPath: `/api/faces/${result.id}/thumbnail`,
+      },
       ...(reclusterResult && {
         recluster: {
           merged: reclusterResult.merged,

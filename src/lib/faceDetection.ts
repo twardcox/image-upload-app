@@ -3,13 +3,11 @@ import * as faceapi from 'face-api.js';
 import { Canvas, Image, ImageData, loadImage } from 'canvas';
 import sharp from 'sharp';
 import { join } from 'path';
-import { writeFile, mkdir } from 'fs/promises';
 import { prisma } from '@/lib/prisma';
 
 let modelsLoaded = false;
 let environmentPatched = false;
 const MODEL_PATH = join(process.cwd(), 'public', 'models');
-const FACE_THUMBNAIL_DIR = join(process.cwd(), 'public', 'faces');
 const FACE_SIMILARITY_THRESHOLD = 0.66; // Slightly more lenient to collapse duplicate clusters of the same person
 const MIN_DETECTION_CONFIDENCE = 0.55; // Reject weak detections that tend to be false positives
 const MIN_FACE_SIZE_PX = 64;
@@ -283,7 +281,7 @@ export async function clusterFace(
   const newFace = await prisma.face.create({
     data: {
       faceDescriptor: normalizedDescriptor,
-      thumbnailPath: '', // Will be updated when thumbnail is extracted
+      thumbnailPath: '/api/faces/pending/thumbnail', // Updated once thumbnail is extracted
       imageCount: 0, // Will be updated by database triggers or manually
     },
   });
@@ -300,8 +298,7 @@ export async function extractFaceThumbnail(
   faceId: string
 ): Promise<string> {
   try {
-    // Ensure faces directory exists
-    await mkdir(FACE_THUMBNAIL_DIR, { recursive: true });
+    const thumbnailPath = `/api/faces/${faceId}/thumbnail`;
 
     // Add padding around face (20%)
     const padding = 0.2;
@@ -322,11 +319,18 @@ export async function extractFaceThumbnail(
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    const thumbnailFilename = `${faceId}.jpg`;
-    const thumbnailPath = `/faces/${thumbnailFilename}`;
-    const fullPath = join(FACE_THUMBNAIL_DIR, thumbnailFilename);
-
-    await writeFile(fullPath, thumbnail);
+    await prisma.faceThumbnail.upsert({
+      where: { faceId },
+      update: {
+        data: new Uint8Array(thumbnail),
+        mimeType: 'image/jpeg',
+      },
+      create: {
+        faceId,
+        data: new Uint8Array(thumbnail),
+        mimeType: 'image/jpeg',
+      },
+    });
 
     // Update Face record with thumbnail path
     await prisma.face.update({

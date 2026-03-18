@@ -35,6 +35,9 @@ export async function GET(request: Request) {
     // Build where clause
     const where: Prisma.ImageWhereInput = {
       userId: session.user.id,
+      blob: {
+        isNot: null,
+      },
     };
 
     if (search) {
@@ -127,7 +130,7 @@ export async function GET(request: Request) {
         id: image.id,
         filename: image.filename,
         originalName: image.originalName,
-        filepath: image.filepath,
+        filepath: `/api/images/${image.id}/content`,
         mimeType: image.mimeType,
         size: image.size,
         width: image.width,

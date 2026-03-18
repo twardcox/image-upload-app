@@ -50,6 +50,7 @@ model User {
   accounts Account[]
   sessions Session[]
   images   Image[]
+  tagsCreated Tag[]
 }
 
 model VerificationToken {
@@ -88,6 +89,7 @@ model Image {
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   tags  ImageTag[]
   faces ImageFace[]
+  blob  ImageBlob?
 
   @@index([userId])
   @@index([createdAt])
@@ -95,12 +97,24 @@ model Image {
   @@index([gpsLatitude, gpsLongitude])
 }
 
+model ImageBlob {
+  imageId    String   @id
+  data       Bytes
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
+
 model Tag {
-  id     String     @id @default(cuid())
-  name   String     @unique
-  images ImageTag[]
+  id              String     @id @default(cuid())
+  name            String     @unique
+  createdByUserId String?
+  images          ImageTag[]
+  createdByUser   User?      @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([name])
+  @@index([createdByUserId])
 }
 
 model ImageTag {
@@ -125,8 +139,19 @@ model Face {
   updatedAt      DateTime @updatedAt
 
   images ImageFace[]
+  blob   FaceThumbnail?
 
   @@index([name])
+}
+
+model FaceThumbnail {
+  faceId      String   @id
+  data        Bytes
+  mimeType    String   @default("image/jpeg")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  face Face @relation(fields: [faceId], references: [id], onDelete: Cascade)
 }
 
 model ImageFace {

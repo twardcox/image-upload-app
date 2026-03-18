@@ -285,6 +285,7 @@ const ImageDetailPage = () => {
               src={image.filepath}
               alt={image.originalName}
               fill
+              unoptimized
               className="object-contain"
               priority
             />

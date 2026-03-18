@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [
       {
-        pathname: "/uploads/**",
+        pathname: "/api/images/**",
       },
       {
-        pathname: "/faces/**",
+        pathname: "/api/faces/**",
       },
     ],
   },

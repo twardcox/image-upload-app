@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
+type ImageBlobLookup = {
+  imageBlob: {
+    findUnique: (args: {
+      where: { imageId: string };
+      select: { data: true };
+    }) => Promise<{ data: Uint8Array } | null>;
+  };
+};
+
 export async function GET(
-  _request: NextRequest,
+  _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const params = await context.params;
 
-    // Check authentication
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -19,13 +26,10 @@ export async function GET(
       );
     }
 
-    const image = await prisma.image.findUnique({
+    const image = await prisma.image.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
-      },
-      include: {
-        blob: true,
       },
     });
 
@@ -36,27 +40,33 @@ export async function GET(
       );
     }
 
-    if (!image.blob) {
+    const imageBlobClient = (prisma as unknown as ImageBlobLookup).imageBlob;
+
+    const blob = await imageBlobClient.findUnique({
+      where: { imageId: image.id },
+      select: { data: true },
+    });
+
+    if (!blob) {
       return NextResponse.json(
-        { error: 'Image binary data not found' },
+        { error: 'Image content not found' },
         { status: 404 }
       );
     }
 
-    const fileBuffer = Buffer.from(image.blob.data);
+    const buffer = Buffer.from(blob.data);
 
-    // Return file with proper headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(buffer, {
       headers: {
         'Content-Type': image.mimeType,
-        'Content-Disposition': `attachment; filename="${image.originalName}"`,
         'Content-Length': image.size.toString(),
+        'Cache-Control': 'private, max-age=31536000, immutable',
       },
     });
   } catch (error) {
-    console.error('Download error:', error);
+    console.error('Image content error:', error);
     return NextResponse.json(
-      { error: 'An error occurred while downloading the image' },
+      { error: 'An error occurred while loading image content' },
       { status: 500 }
     );
   }

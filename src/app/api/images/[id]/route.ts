@@ -1,227 +1,219 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-
-    // Check authentication
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const image = await prisma.image.findUnique({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    });
-
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      image: {
-        id: image.id,
-        filename: image.filename,
-        originalName: image.originalName,
-        filepath: image.filepath,
-        mimeType: image.mimeType,
-        size: image.size,
-        width: image.width,
-        height: image.height,
-        createdAt: image.createdAt,
-        updatedAt: image.updatedAt,
-        tags: image.tags.map((t) => t.tag),
-        // EXIF metadata
-        dateTaken: image.dateTaken,
-        gpsLatitude: image.gpsLatitude,
-        gpsLongitude: image.gpsLongitude,
-        cameraMake: image.cameraMake,
-        cameraModel: image.cameraModel,
-        fNumber: image.fNumber,
-        exposureTime: image.exposureTime,
-        iso: image.iso,
-        focalLength: image.focalLength,
-      },
-    });
-  } catch (error) {
-    console.error('Get image error:', error);
-    return NextResponse.json(
-      { error: 'An error occurred while fetching the image' },
-      { status: 500 }
-    );
-  }
+interface UpdateImageRequestBody {
+	tagIds?: string[];
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+export async function GET(
+	_request: Request,
+	context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const params = await context.params;
+	try {
+		const params = await context.params;
 
-    // Check authentication
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+		const session = await auth();
+		if (!session?.user?.id) {
+			return NextResponse.json(
+				{ error: 'Unauthorized' },
+				{ status: 401 }
+			);
+		}
 
-    const image = await prisma.image.findUnique({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
-    });
+		const image = await prisma.image.findFirst({
+			where: {
+				id: params.id,
+				userId: session.user.id,
+			},
+			include: {
+				tags: {
+					include: {
+						tag: true,
+					},
+				},
+			},
+		});
 
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image not found' },
-        { status: 404 }
-      );
-    }
+		if (!image) {
+			return NextResponse.json(
+				{ error: 'Image not found' },
+				{ status: 404 }
+			);
+		}
 
-    // Delete file from disk
-    try {
-      const relativePath = image.filepath.replace(/^\/+/, '');
-      const filePath = join(process.cwd(), 'public', relativePath);
-      await unlink(filePath);
-    } catch (error) {
-      console.error('Error deleting file:', error);
-      // Continue even if file deletion fails
-    }
-
-    // Delete from database (cascade will delete tags)
-    await prisma.image.delete({
-      where: {
-        id: params.id,
-      },
-    });
-
-    return NextResponse.json(
-      { message: 'Image deleted successfully' },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Delete image error:', error);
-    return NextResponse.json(
-      { error: 'An error occurred while deleting the image' },
-      { status: 500 }
-    );
-  }
+		return NextResponse.json({
+			image: {
+				id: image.id,
+				filename: image.filename,
+				originalName: image.originalName,
+				filepath: `/api/images/${image.id}/content`,
+				mimeType: image.mimeType,
+				size: image.size,
+				width: image.width,
+				height: image.height,
+				createdAt: image.createdAt,
+				updatedAt: image.updatedAt,
+				tags: image.tags.map((t) => t.tag),
+			},
+		});
+	} catch (error) {
+		console.error('Get image error:', error);
+		return NextResponse.json(
+			{ error: 'An error occurred while fetching the image' },
+			{ status: 500 }
+		);
+	}
 }
 
 export async function PUT(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
+	request: Request,
+	context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const params = await context.params;
+	try {
+		const params = await context.params;
 
-    // Check authentication
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+		const session = await auth();
+		if (!session?.user?.id) {
+			return NextResponse.json(
+				{ error: 'Unauthorized' },
+				{ status: 401 }
+			);
+		}
 
-    const { tagIds } = await request.json();
+		const image = await prisma.image.findFirst({
+			where: {
+				id: params.id,
+				userId: session.user.id,
+			},
+			select: { id: true },
+		});
 
-    const image = await prisma.image.findUnique({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
-    });
+		if (!image) {
+			return NextResponse.json(
+				{ error: 'Image not found' },
+				{ status: 404 }
+			);
+		}
 
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image not found' },
-        { status: 404 }
-      );
-    }
+		const body = (await request.json()) as UpdateImageRequestBody;
+		const tagIds = body.tagIds;
 
-    // Update tags
-    if (Array.isArray(tagIds)) {
-      // Delete existing tags
-      await prisma.imageTag.deleteMany({
-        where: {
-          imageId: params.id,
-        },
-      });
+		if (!Array.isArray(tagIds)) {
+			return NextResponse.json(
+				{ error: 'tagIds must be an array' },
+				{ status: 400 }
+			);
+		}
 
-      // Create new tag associations
-      if (tagIds.length > 0) {
-        await prisma.imageTag.createMany({
-          data: tagIds.map((tagId: string) => ({
-            imageId: params.id,
-            tagId,
-          })),
-        });
-      }
-    }
+		await prisma.imageTag.deleteMany({
+			where: { imageId: image.id },
+		});
 
-    // Fetch updated image
-    const updatedImage = await prisma.image.findUnique({
-      where: {
-        id: params.id,
-      },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    });
+		if (tagIds.length > 0) {
+			const existingTags = await prisma.tag.findMany({
+				where: { id: { in: tagIds } },
+				select: { id: true },
+			});
 
-    return NextResponse.json({
-      image: {
-        id: updatedImage!.id,
-        filename: updatedImage!.filename,
-        originalName: updatedImage!.originalName,
-        filepath: updatedImage!.filepath,
-        mimeType: updatedImage!.mimeType,
-        size: updatedImage!.size,
-        width: updatedImage!.width,
-        height: updatedImage!.height,
-        createdAt: updatedImage!.createdAt,
-        updatedAt: updatedImage!.updatedAt,
-        tags: updatedImage!.tags.map((t) => t.tag),
-      },
-    });
-  } catch (error) {
-    console.error('Update image error:', error);
-    return NextResponse.json(
-      { error: 'An error occurred while updating the image' },
-      { status: 500 }
-    );
-  }
+			const existingTagIds = new Set(existingTags.map((tag) => tag.id));
+			const validTagIds = tagIds.filter((tagId) => existingTagIds.has(tagId));
+
+			if (validTagIds.length > 0) {
+				await prisma.imageTag.createMany({
+					data: validTagIds.map((tagId) => ({
+						imageId: image.id,
+						tagId,
+					})),
+					skipDuplicates: true,
+				});
+			}
+		}
+
+		const updatedImage = await prisma.image.findUnique({
+			where: { id: image.id },
+			include: {
+				tags: {
+					include: {
+						tag: true,
+					},
+				},
+			},
+		});
+
+		if (!updatedImage) {
+			return NextResponse.json(
+				{ error: 'Image not found after update' },
+				{ status: 404 }
+			);
+		}
+
+		return NextResponse.json({
+			image: {
+				id: updatedImage.id,
+				filename: updatedImage.filename,
+				originalName: updatedImage.originalName,
+				filepath: `/api/images/${updatedImage.id}/content`,
+				mimeType: updatedImage.mimeType,
+				size: updatedImage.size,
+				width: updatedImage.width,
+				height: updatedImage.height,
+				createdAt: updatedImage.createdAt,
+				updatedAt: updatedImage.updatedAt,
+				tags: updatedImage.tags.map((t) => t.tag),
+			},
+		});
+	} catch (error) {
+		console.error('Update image error:', error);
+		return NextResponse.json(
+			{ error: 'An error occurred while updating image tags' },
+			{ status: 500 }
+		);
+	}
+}
+
+export async function DELETE(
+	_request: Request,
+	context: { params: Promise<{ id: string }> }
+) {
+	try {
+		const params = await context.params;
+
+		const session = await auth();
+		if (!session?.user?.id) {
+			return NextResponse.json(
+				{ error: 'Unauthorized' },
+				{ status: 401 }
+			);
+		}
+
+		const image = await prisma.image.findFirst({
+			where: {
+				id: params.id,
+				userId: session.user.id,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!image) {
+			return NextResponse.json(
+				{ error: 'Image not found' },
+				{ status: 404 }
+			);
+		}
+
+		await prisma.image.delete({
+			where: { id: image.id },
+		});
+
+		return NextResponse.json({ success: true });
+	} catch (error) {
+		console.error('Delete image error:', error);
+		return NextResponse.json(
+			{ error: 'An error occurred while deleting the image' },
+			{ status: 500 }
+		);
+	}
 }

@@ -283,6 +283,7 @@ const FaceFilterBar = ({
                         alt={getDisplayName(face)}
                         width={64}
                         height={64}
+                        unoptimized
                         className="w-16 h-16 rounded-full object-cover"
                       />
                       <div className="flex-1 min-w-0">
@@ -379,6 +380,7 @@ const FaceFilterBar = ({
                 alt={getDisplayName(face)}
                 width={64}
                 height={64}
+                unoptimized
                 className="w-16 h-16 rounded-full object-cover"
               />
               <span className="text-xs font-medium truncate max-w-[64px]">

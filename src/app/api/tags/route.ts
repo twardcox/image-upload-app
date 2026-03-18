@@ -31,6 +31,8 @@ export async function GET() {
         id: tag.id,
         name: tag.name,
         imageCount: tag._count.images,
+        createdByUserId: tag.createdByUserId,
+        canDelete: tag.createdByUserId === session.user.id,
       })),
     });
   } catch (error) {
@@ -84,6 +86,8 @@ export async function POST(request: Request) {
         tag: {
           id: existingTag.id,
           name: existingTag.name,
+          createdByUserId: existingTag.createdByUserId,
+          canDelete: existingTag.createdByUserId === session.user.id,
         },
       });
     }
@@ -92,6 +96,7 @@ export async function POST(request: Request) {
     const tag = await prisma.tag.create({
       data: {
         name: normalizedName,
+        createdByUserId: session.user.id,
       },
     });
 
@@ -100,6 +105,8 @@ export async function POST(request: Request) {
         tag: {
           id: tag.id,
           name: tag.name,
+          createdByUserId: tag.createdByUserId,
+          canDelete: tag.createdByUserId === session.user.id,
         },
       },
       { status: 201 }

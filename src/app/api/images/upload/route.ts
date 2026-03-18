@@ -2,15 +2,12 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import sharp from 'sharp';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import exifr from 'exifr';
 import { processImageForFaces } from '@/lib/faceDetection';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads');
 const MAX_WIDTH = 1920;
 const MAX_HEIGHT = 1440;
 
@@ -131,25 +128,14 @@ export async function POST(request: Request) {
     // Generate unique filename
     const fileExtension = file.name.split('.').pop() || 'jpg';
     const filename = `${uuidv4()}.${fileExtension}`;
-    const filepath = `/uploads/${filename}`;
-    const fullPath = join(UPLOAD_DIR, filename);
-
-    // Ensure upload directory exists
-    try {
-      await mkdir(UPLOAD_DIR, { recursive: true });
-    } catch {
-      // Directory already exists
-    }
-
-    // Save file to disk
-    await writeFile(fullPath, optimizedBuffer);
+    const initialFilepath = '';
 
     // Save metadata to database
     const image = await prisma.image.create({
       data: {
         filename,
         originalName: file.name,
-        filepath,
+        filepath: initialFilepath,
         mimeType: file.type,
         size: optimizedBuffer.length,
         width: optimizedMetadata.width || null,
@@ -168,6 +154,22 @@ export async function POST(request: Request) {
       },
     });
 
+    await prisma.imageBlob.upsert({
+      where: { imageId: image.id },
+      update: { data: new Uint8Array(optimizedBuffer) },
+      create: {
+        imageId: image.id,
+        data: new Uint8Array(optimizedBuffer),
+      },
+    });
+
+    const filepath = `/api/images/${image.id}/content`;
+
+    const updatedImage = await prisma.image.update({
+      where: { id: image.id },
+      data: { filepath },
+    });
+
     // Run face detection in the background so upload response is immediate.
     // Do not fail upload if background face detection fails.
     processImageForFaces(image.id, optimizedBuffer, session.user.id).catch((error) => {
@@ -176,21 +178,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       image: {
-        id: image.id,
-        filename: image.filename,
-        originalName: image.originalName,
-        filepath: image.filepath,
-        mimeType: image.mimeType,
-        size: image.size,
-        width: image.width,
-        height: image.height,
-        createdAt: image.createdAt,
+        id: updatedImage.id,
+        filename: updatedImage.filename,
+        originalName: updatedImage.originalName,
+        filepath: updatedImage.filepath,
+        mimeType: updatedImage.mimeType,
+        size: updatedImage.size,
+        width: updatedImage.width,
+        height: updatedImage.height,
+        createdAt: updatedImage.createdAt,
         // Include EXIF metadata in response
-        dateTaken: image.dateTaken,
-        gpsLatitude: image.gpsLatitude,
-        gpsLongitude: image.gpsLongitude,
-        cameraMake: image.cameraMake,
-        cameraModel: image.cameraModel,
+        dateTaken: updatedImage.dateTaken,
+        gpsLatitude: updatedImage.gpsLatitude,
+        gpsLongitude: updatedImage.gpsLongitude,
+        cameraMake: updatedImage.cameraMake,
+        cameraModel: updatedImage.cameraModel,
       },
     }, { status: 201 });
 

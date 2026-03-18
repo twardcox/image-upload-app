@@ -92,6 +92,7 @@ export async function GET(
       .filter((imageFace) => imageFace.image.userId === session.user.id)
       .map((imageFace) => ({
         ...imageFace.image,
+        filepath: `/api/images/${imageFace.image.id}/content`,
         boundingBox: imageFace.boundingBox,
         confidence: imageFace.confidence,
       }));
@@ -100,7 +101,7 @@ export async function GET(
       face: {
         id: face.id,
         name: face.name,
-        thumbnailPath: face.thumbnailPath,
+        thumbnailPath: `/api/faces/${face.id}/thumbnail`,
         imageCount: userImages.length,
         createdAt: face.createdAt,
         updatedAt: face.updatedAt,
@@ -199,7 +200,10 @@ export async function PUT(
       });
 
       return NextResponse.json({
-        face: updatedFace,
+        face: {
+          ...updatedFace,
+          thumbnailPath: `/api/faces/${updatedFace.id}/thumbnail`,
+        },
       });
     }
 
@@ -308,7 +312,10 @@ export async function PUT(
     });
 
     return NextResponse.json({
-      face: updatedFace,
+      face: {
+        ...updatedFace,
+        thumbnailPath: `/api/faces/${updatedFace.id}/thumbnail`,
+      },
       mergedFaces: sourceFaceIds.length,
       skippedMergeCandidates: mergeCandidates.length - sourceFaceIds.length,
     });

@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { processImageForFaces } from '@/lib/faceDetection';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+
+type ImageBlobLookup = {
+  imageBlob: {
+    findUnique: (args: {
+      where: { imageId: string };
+      select: { data: true };
+    }) => Promise<{ data: Uint8Array } | null>;
+  };
+};
 
 /**
  * POST /api/faces/detect
@@ -45,7 +52,6 @@ export async function POST(request: Request) {
       },
       select: {
         id: true,
-        filepath: true,
       },
     });
 
@@ -67,10 +73,18 @@ export async function POST(request: Request) {
     const results = await Promise.allSettled(
       images.map(async (image) => {
         try {
-          // Read image file (normalize leading slash for cross-platform safety)
-          const normalizedFilepath = image.filepath.replace(/^\/+/, '');
-          const imagePath = join(process.cwd(), 'public', normalizedFilepath);
-          const imageBuffer = await readFile(imagePath);
+          const imageBlobClient = (prisma as unknown as ImageBlobLookup).imageBlob;
+
+          const blob = await imageBlobClient.findUnique({
+            where: { imageId: image.id },
+            select: { data: true },
+          });
+
+          if (!blob) {
+            throw new Error('Image binary data not found in database');
+          }
+
+          const imageBuffer = Buffer.from(blob.data);
 
           // Clear existing face records to avoid duplicates on re-run
           await prisma.imageFace.deleteMany({ where: { imageId: image.id } });
@@ -89,11 +103,12 @@ export async function POST(request: Request) {
             facesDetected: faceCount,
           };
         } catch (error) {
-          console.error(`Face detection failed for image ${image.id}:`, error);
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          console.warn(`Face detection skipped for image ${image.id}: ${message}`);
           return {
             imageId: image.id,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: message,
           };
         }
       })

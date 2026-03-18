@@ -78,7 +78,10 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      faces,
+      faces: faces.map((face) => ({
+        ...face,
+        thumbnailPath: `/api/faces/${face.id}/thumbnail`,
+      })),
       pagination: {
         page,
         limit,

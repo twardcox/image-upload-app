@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { join } from 'path';
-import { readFile, writeFile, unlink } from 'fs/promises';
 import sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
 
 interface RotateRequestBody {
   direction?: 'left' | 'right';
@@ -26,6 +23,9 @@ export async function POST(
       where: {
         id: params.id,
         userId: session.user.id,
+      },
+      include: {
+        blob: true,
       },
     });
 
@@ -51,34 +51,32 @@ export async function POST(
     }
 
     const angle = direction === 'left' ? -90 : 90;
-    const relativePath = image.filepath.replace(/^\/+/, '');
-    const fullPath = join(process.cwd(), 'public', relativePath);
+    if (!image.blob) {
+      return NextResponse.json(
+        { error: 'Image binary data not found' },
+        { status: 404 }
+      );
+    }
 
-    const fileBuffer = await readFile(fullPath);
+    const fileBuffer = Buffer.from(image.blob.data);
 
     const { data: rotatedBuffer, info } = await sharp(fileBuffer)
       .rotate(angle)
       .toBuffer({ resolveWithObject: true });
 
-    const fileExtension = image.filename.split('.').pop() || 'jpg';
-    const newFilename = `${uuidv4()}.${fileExtension}`;
-    const newRelativePath = `uploads/${newFilename}`;
-    const newFilepath = `/uploads/${newFilename}`;
-    const newFullPath = join(process.cwd(), 'public', newRelativePath);
-
-    await writeFile(newFullPath, rotatedBuffer);
-
-    try {
-      await unlink(fullPath);
-    } catch (unlinkError) {
-      console.warn('Failed to delete old image after rotation:', unlinkError);
-    }
+    await prisma.imageBlob.upsert({
+      where: { imageId: image.id },
+      update: { data: new Uint8Array(rotatedBuffer) },
+      create: {
+        imageId: image.id,
+        data: new Uint8Array(rotatedBuffer),
+      },
+    });
 
     const updatedImage = await prisma.image.update({
       where: { id: image.id },
       data: {
-        filename: newFilename,
-        filepath: newFilepath,
+        filepath: `/api/images/${image.id}/content`,
         size: rotatedBuffer.length,
         width: info.width ?? image.width,
         height: info.height ?? image.height,
@@ -90,7 +88,7 @@ export async function POST(
         id: updatedImage.id,
         filename: updatedImage.filename,
         originalName: updatedImage.originalName,
-        filepath: updatedImage.filepath,
+        filepath: `/api/images/${updatedImage.id}/content`,
         mimeType: updatedImage.mimeType,
         size: updatedImage.size,
         width: updatedImage.width,

@@ -274,7 +274,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
         <Card>
           <CardContent className="p-0 relative aspect-square">
             <Image
-              src={`${image.filepath}?v=${new Date(image.updatedAt).getTime()}`}
+              src={image.filepath}
               alt={image.originalName}
               fill
               className="object-contain"

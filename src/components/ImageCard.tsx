@@ -152,9 +152,7 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
     image.gpsLatitude
   );
 
-  const imageSrc = `${image.filepath}?v=${new Date(
-    image.updatedAt || image.createdAt
-  ).getTime()}`;
+  const imageSrc = image.filepath;
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">

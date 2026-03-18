@@ -36,7 +36,8 @@ export async function GET(
     }
 
     // Read file from disk
-    const filePath = join(process.cwd(), 'public', image.filepath);
+    const relativePath = image.filepath.replace(/^\/+/, '');
+    const filePath = join(process.cwd(), 'public', relativePath);
     const fileBuffer = await readFile(filePath);
 
     // Return file with proper headers

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { join } from 'path';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, unlink } from 'fs/promises';
 import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 
 interface RotateRequestBody {
   direction?: 'left' | 'right';
@@ -59,11 +60,25 @@ export async function POST(
       .rotate(angle)
       .toBuffer({ resolveWithObject: true });
 
-    await writeFile(fullPath, rotatedBuffer);
+    const fileExtension = image.filename.split('.').pop() || 'jpg';
+    const newFilename = `${uuidv4()}.${fileExtension}`;
+    const newRelativePath = `uploads/${newFilename}`;
+    const newFilepath = `/uploads/${newFilename}`;
+    const newFullPath = join(process.cwd(), 'public', newRelativePath);
+
+    await writeFile(newFullPath, rotatedBuffer);
+
+    try {
+      await unlink(fullPath);
+    } catch (unlinkError) {
+      console.warn('Failed to delete old image after rotation:', unlinkError);
+    }
 
     const updatedImage = await prisma.image.update({
       where: { id: image.id },
       data: {
+        filename: newFilename,
+        filepath: newFilepath,
         size: rotatedBuffer.length,
         width: info.width ?? image.width,
         height: info.height ?? image.height,

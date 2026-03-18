@@ -3,6 +3,28 @@ import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
+const AUTO_MERGE_DISTANCE_THRESHOLD = 0.5;
+
+function normalizeDescriptor(descriptor: number[]): number[] {
+  const magnitude = Math.sqrt(descriptor.reduce((sum, val) => sum + val * val, 0));
+  return magnitude > 0 ? descriptor.map((val) => val / magnitude) : descriptor;
+}
+
+function euclideanDistance(desc1: number[], desc2: number[]): number {
+  if (desc1.length !== desc2.length) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.sqrt(
+    desc1.reduce((sum, val, idx) => sum + Math.pow(val - desc2[idx], 2), 0)
+  );
+}
+
+function toNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is number => typeof item === 'number');
+}
+
 /**
  * GET /api/faces/[id]
  * Get single face details with all associated images
@@ -127,7 +149,9 @@ export async function PUT(
     // Verify face exists and user has access
     const face = await prisma.face.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        faceDescriptor: true,
         images: {
           include: {
             image: {
@@ -157,22 +181,136 @@ export async function PUT(
       );
     }
 
-    // Update face name
-    const updatedFace = await prisma.face.update({
-      where: { id: params.id },
-      data: { name: name || null },
+    const normalizedName = name.trim();
+
+    // If name is empty, just clear it (no merge behavior)
+    if (!normalizedName) {
+      const updatedFace = await prisma.face.update({
+        where: { id: params.id },
+        data: { name: null },
+        select: {
+          id: true,
+          name: true,
+          thumbnailPath: true,
+          imageCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return NextResponse.json({
+        face: updatedFace,
+      });
+    }
+
+    // Find same-name faces that belong to this user and should be merged.
+    const mergeCandidates = await prisma.face.findMany({
+      where: {
+        id: { not: params.id },
+        name: {
+          equals: normalizedName,
+          mode: 'insensitive',
+        },
+        images: {
+          some: {
+            image: {
+              userId: session.user.id,
+            },
+          },
+        },
+      },
       select: {
         id: true,
-        name: true,
-        thumbnailPath: true,
-        imageCount: true,
-        createdAt: true,
-        updatedAt: true,
+        faceDescriptor: true,
       },
+    });
+
+    const targetDescriptor = normalizeDescriptor(toNumberArray(face.faceDescriptor));
+
+    const verifiedMergeCandidates = mergeCandidates.filter((candidate) => {
+      const candidateDescriptor = normalizeDescriptor(toNumberArray(candidate.faceDescriptor));
+
+      if (targetDescriptor.length === 0 || candidateDescriptor.length === 0) {
+        return false;
+      }
+
+      const distance = euclideanDistance(targetDescriptor, candidateDescriptor);
+      return distance <= AUTO_MERGE_DISTANCE_THRESHOLD;
+    });
+
+    const sourceFaceIds = verifiedMergeCandidates.map((f) => f.id);
+
+    // Merge same-name clusters into the face being renamed.
+    const updatedFace = await prisma.$transaction(async (tx) => {
+      for (const sourceFaceId of sourceFaceIds) {
+        const imageFaces = await tx.imageFace.findMany({
+          where: { faceId: sourceFaceId },
+        });
+
+        for (const imageFace of imageFaces) {
+          const existing = await tx.imageFace.findUnique({
+            where: {
+              imageId_faceId: {
+                imageId: imageFace.imageId,
+                faceId: params.id,
+              },
+            },
+          });
+
+          if (!existing) {
+            await tx.imageFace.update({
+              where: {
+                imageId_faceId: {
+                  imageId: imageFace.imageId,
+                  faceId: sourceFaceId,
+                },
+              },
+              data: {
+                faceId: params.id,
+              },
+            });
+          } else {
+            await tx.imageFace.delete({
+              where: {
+                imageId_faceId: {
+                  imageId: imageFace.imageId,
+                  faceId: sourceFaceId,
+                },
+              },
+            });
+          }
+        }
+
+        await tx.face.delete({
+          where: { id: sourceFaceId },
+        });
+      }
+
+      const imageCount = await tx.imageFace.count({
+        where: { faceId: params.id },
+      });
+
+      return tx.face.update({
+        where: { id: params.id },
+        data: {
+          name: normalizedName,
+          imageCount,
+        },
+        select: {
+          id: true,
+          name: true,
+          thumbnailPath: true,
+          imageCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
     });
 
     return NextResponse.json({
       face: updatedFace,
+      mergedFaces: sourceFaceIds.length,
+      skippedMergeCandidates: mergeCandidates.length - sourceFaceIds.length,
     });
   } catch (error) {
     console.error('Update face error:', error);

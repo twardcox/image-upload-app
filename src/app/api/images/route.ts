@@ -21,6 +21,13 @@ export async function GET(request: Request) {
     const tagIds = searchParams.get('tags')?.split(',').filter(Boolean) || [];
     const sortBy = (searchParams.get('sortBy') || 'createdAt') as keyof Prisma.ImageOrderByWithRelationInput;
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as Prisma.SortOrder;
+    
+    // Metadata filters
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    const cameraMake = searchParams.get('cameraMake');
+    const cameraModel = searchParams.get('cameraModel');
+    const hasGPS = searchParams.get('hasGPS');
 
     const skip = (page - 1) * limit;
 
@@ -44,6 +51,43 @@ export async function GET(request: Request) {
           },
         },
       };
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      where.dateTaken = {};
+      if (dateFrom) {
+        where.dateTaken.gte = new Date(dateFrom);
+      }
+      if (dateTo) {
+        // Add 1 day to include the entire day
+        const endDate = new Date(dateTo);
+        endDate.setDate(endDate.getDate() + 1);
+        where.dateTaken.lte = endDate;
+      }
+    }
+
+    // Camera filter
+    if (cameraMake) {
+      where.cameraMake = cameraMake;
+    }
+    if (cameraModel) {
+      where.cameraModel = cameraModel;
+    }
+
+    // GPS filter
+    if (hasGPS !== null) {
+      if (hasGPS === 'true') {
+        where.AND = [
+          { gpsLatitude: { not: null } },
+          { gpsLongitude: { not: null } },
+        ];
+      } else if (hasGPS === 'false') {
+        where.OR = [
+          { gpsLatitude: null },
+          { gpsLongitude: null },
+        ];
+      }
     }
 
     // Get total count

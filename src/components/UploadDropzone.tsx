@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Lead, Muted } from '@/components/ui/typography';
 
 interface UploadDropzoneProps {
   onUploadSuccess?: () => void;
@@ -101,12 +102,8 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
         <div className="space-y-4">
           <div className="text-4xl">📷</div>
           <div>
-            <p className="text-lg font-medium">
-              Drag and drop your image here
-            </p>
-            <p className="text-sm text-gray-500">
-              or click the button below to select a file
-            </p>
+            <Lead className="font-medium text-foreground">Drag and drop your image here</Lead>
+            <Muted>or click the button below to select a file</Muted>
           </div>
           <Button
             type="button"
@@ -115,9 +112,7 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
           >
             {isUploading ? 'Uploading...' : 'Select Image'}
           </Button>
-          <p className="text-xs text-gray-500">
-            Supports: JPEG, PNG, WebP, GIF (Max 10MB)
-          </p>
+          <Muted className="text-xs">Supports: JPEG, PNG, WebP, GIF (Max 10MB)</Muted>
         </div>
       </div>
 

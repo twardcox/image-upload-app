@@ -240,12 +240,12 @@ const FaceFilterBar = ({
                           </div>
                         ) : (
                           <>
-                            <h4 className="font-medium truncate">
+                            <H3 className="truncate text-foreground">
                               {getDisplayName(face)}
-                            </h4>
-                            <p className="text-sm text-gray-500">
+                            </H3>
+                            <Muted>
                               {face.imageCount} photo{face.imageCount !== 1 ? 's' : ''}
-                            </p>
+                            </Muted>
                             <div className="flex gap-2 mt-2">
                               <Button
                                 size="sm"
@@ -305,7 +305,7 @@ const FaceFilterBar = ({
               <span className="text-xs font-medium truncate max-w-[64px]">
                 {getDisplayName(face)}
               </span>
-              <span className="text-xs text-gray-500">{face.imageCount}</span>
+              <Muted className="text-xs leading-none">{face.imageCount}</Muted>
             </button>
           );
         })}

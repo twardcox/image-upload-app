@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
+import { Muted, P } from '@/components/ui/typography';
 
 interface Tag {
   id: string;
@@ -141,9 +142,9 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
       </Link>
       <CardFooter className="flex flex-col items-start p-4 space-y-2">
         <div className="w-full flex items-center justify-between">
-          <p className="font-medium text-sm truncate flex-1">
+          <P className="font-medium text-sm truncate flex-1 leading-normal">
             {image.originalName}
-          </p>
+          </P>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -167,9 +168,9 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="w-full flex items-center justify-between text-xs text-gray-500">
-          <span>{formatSize(image.size)}</span>
-          <span>{formatDate(image.createdAt)}</span>
+        <div className="w-full flex items-center justify-between">
+          <Muted className="text-xs leading-none">{formatSize(image.size)}</Muted>
+          <Muted className="text-xs leading-none">{formatDate(image.createdAt)}</Muted>
         </div>
         {image.tags && image.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -183,38 +184,38 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
         {hasExifData && (
           <div className="w-full pt-2 border-t space-y-1">
             {image.dateTaken && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+              <div className="flex items-center gap-1.5 text-xs">
                 <span className="opacity-70">📅</span>
-                <span className="truncate">{formatDateTime(image.dateTaken)}</span>
+                <Muted className="truncate text-xs leading-none">{formatDateTime(image.dateTaken)}</Muted>
               </div>
             )}
             {(image.cameraMake || image.cameraModel) && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+              <div className="flex items-center gap-1.5 text-xs">
                 <span className="opacity-70">📷</span>
-                <span className="truncate">
+                <Muted className="truncate text-xs leading-none">
                   {[image.cameraMake, image.cameraModel]
                     .filter(Boolean)
                     .join(' ')}
-                </span>
+                </Muted>
               </div>
             )}
             {image.gpsLatitude !== null &&
               image.gpsLatitude !== undefined &&
               image.gpsLongitude !== null &&
               image.gpsLongitude !== undefined && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <div className="flex items-center gap-1.5 text-xs">
                   <span className="opacity-70">📍</span>
-                  <span className="truncate font-mono text-[10px]">
+                  <Muted className="truncate font-mono text-[10px] leading-none">
                     {formatGPS(image.gpsLatitude, image.gpsLongitude)}
-                  </span>
+                  </Muted>
                 </div>
               )}
             {(image.fNumber || image.iso || image.exposureTime) && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                {image.fNumber && <span>f/{image.fNumber}</span>}
-                {image.exposureTime && <span>{image.exposureTime}s</span>}
-                {image.iso && <span>ISO {image.iso}</span>}
-                {image.focalLength && <span>{image.focalLength}mm</span>}
+              <div className="flex items-center gap-2">
+                {image.fNumber && <Muted className="text-xs leading-none">f/{image.fNumber}</Muted>}
+                {image.exposureTime && <Muted className="text-xs leading-none">{image.exposureTime}s</Muted>}
+                {image.iso && <Muted className="text-xs leading-none">ISO {image.iso}</Muted>}
+                {image.focalLength && <Muted className="text-xs leading-none">{image.focalLength}mm</Muted>}
               </div>
             )}
           </div>

@@ -322,9 +322,9 @@ const GalleryPage = () => {
               >
                 Previous
               </Button>
-              <span className="text-sm text-gray-600">
+              <Muted>
                 Page {pagination.page} of {pagination.totalPages}
-              </span>
+              </Muted>
               <Button
                 variant="outline"
                 onClick={() =>

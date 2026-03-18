@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -40,8 +40,10 @@ interface ImageData {
   tags: Tag[];
 }
 
-const ImageDetailPage = ({ params }: { params: { id: string } }) => {
+const ImageDetailPage = () => {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const imageId = params?.id;
   const [image, setImage] = useState<ImageData | null>(null);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,15 +54,17 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   const [newTagName, setNewTagName] = useState('');
 
   useEffect(() => {
+    if (!imageId) return;
     fetchImage();
     fetchTags();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+  }, [imageId]);
 
   const fetchImage = async () => {
+    if (!imageId) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/images/${params.id}`);
+      const response = await fetch(`/api/images/${imageId}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -91,13 +95,14 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   };
 
   const handleDelete = async () => {
+    if (!imageId) return;
     if (!confirm('Are you sure you want to delete this image?')) {
       return;
     }
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/images/${params.id}`, {
+      const response = await fetch(`/api/images/${imageId}`, {
         method: 'DELETE',
       });
 
@@ -114,8 +119,9 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   };
 
   const handleDownload = async () => {
+    if (!imageId) return;
     try {
-      const response = await fetch(`/api/images/${params.id}/download`);
+      const response = await fetch(`/api/images/${imageId}/download`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -131,9 +137,10 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   };
 
   const handleRotate = async (direction: 'left' | 'right') => {
+    if (!imageId) return;
     setIsRotating(true);
     try {
-      const response = await fetch(`/api/images/${params.id}/rotate`, {
+      const response = await fetch(`/api/images/${imageId}/rotate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ direction }),
@@ -176,8 +183,9 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   };
 
   const handleSaveTags = async () => {
+    if (!imageId) return;
     try {
-      const response = await fetch(`/api/images/${params.id}`, {
+      const response = await fetch(`/api/images/${imageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tagIds: selectedTagIds }),

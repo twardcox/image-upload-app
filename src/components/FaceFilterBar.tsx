@@ -34,17 +34,40 @@ const FaceFilterBar = ({
   onFaceSelect,
   onFacesChange,
 }: FaceFilterBarProps) => {
+  const REQUEST_TIMEOUT_MS = 30000;
+  const DETECTION_TIMEOUT_MS = 180000;
+
   const [faces, setFaces] = useState<Face[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [editingFace, setEditingFace] = useState<Face | null>(null);
   const [editName, setEditName] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  const fetchWithTimeout = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(input, {
+        cache: 'no-store',
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
   const fetchFaces = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/faces?limit=100');
+      const response = await fetchWithTimeout('/api/faces?limit=100');
       const data = await response.json();
 
       if (response.ok) {
@@ -64,8 +87,9 @@ const FaceFilterBar = ({
   const handleNameUpdate = async () => {
     if (!editingFace) return;
 
+    setIsSavingName(true);
     try {
-      const response = await fetch(`/api/faces/${editingFace.id}`, {
+      const response = await fetchWithTimeout(`/api/faces/${editingFace.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName || null }),
@@ -79,6 +103,8 @@ const FaceFilterBar = ({
       }
     } catch (error) {
       console.error('Failed to update face name:', error);
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -86,7 +112,7 @@ const FaceFilterBar = ({
     if (!confirm('Are you sure you want to delete this face cluster?')) return;
 
     try {
-      const response = await fetch(`/api/faces/${faceId}`, {
+      const response = await fetchWithTimeout(`/api/faces/${faceId}`, {
         method: 'DELETE',
       });
 
@@ -103,18 +129,22 @@ const FaceFilterBar = ({
     setIsDetecting(true);
     try {
       // Fetch all image IDs for the current user
-      const imagesResponse = await fetch('/api/images?limit=1000');
+      const imagesResponse = await fetchWithTimeout('/api/images?limit=1000');
       if (!imagesResponse.ok) throw new Error('Failed to fetch images');
       const imagesData = await imagesResponse.json();
       const imageIds: string[] = (imagesData.images ?? []).map((img: { id: string }) => img.id);
 
       if (imageIds.length === 0) return;
 
-      const response = await fetch('/api/faces/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageIds }),
-      });
+      const response = await fetchWithTimeout(
+        '/api/faces/detect',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageIds }),
+        },
+        DETECTION_TIMEOUT_MS
+      );
 
       if (response.ok) {
         await fetchFaces();
@@ -229,9 +259,10 @@ const FaceFilterBar = ({
                               <Button
                                 size="sm"
                                 onClick={handleNameUpdate}
+                                disabled={isSavingName}
                                 className="flex-1"
                               >
-                                Save
+                                {isSavingName ? 'Saving...' : 'Save'}
                               </Button>
                               <Button
                                 size="sm"
@@ -240,6 +271,7 @@ const FaceFilterBar = ({
                                   setEditingFace(null);
                                   setEditName('');
                                 }}
+                                disabled={isSavingName}
                                 className="flex-1"
                               >
                                 Cancel

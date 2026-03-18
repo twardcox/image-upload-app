@@ -8,10 +8,9 @@
  * Requires: Development server running on http://localhost:3000
  */
 
+/* eslint-disable */
 const http = require('http');
 const https = require('https');
-const fs = require('fs');
-const path = require('path');
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const TEST_EMAIL = process.env.TEST_EMAIL || 'test@example.com';
@@ -52,7 +51,7 @@ function request(method, path, data = null, headers = {}) {
         try {
           const json = body ? JSON.parse(body) : {};
           resolve({ status: res.statusCode, data: json, headers: res.headers });
-        } catch (err) {
+        } catch {
           resolve({ status: res.statusCode, data: body, headers: res.headers });
         }
       });
@@ -85,9 +84,6 @@ async function authenticate() {
   console.log('\n=== Authentication ===');
   
   try {
-    // Get CSRF token
-    const loginPage = await request('GET', '/login');
-    
     // Attempt login (simplified - may need adjustment based on actual auth flow)
     const loginRes = await request('POST', '/api/auth/callback/credentials', {
       email: TEST_EMAIL,

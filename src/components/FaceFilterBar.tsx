@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -199,9 +200,11 @@ const FaceFilterBar = ({
                     className="border rounded-lg p-3 space-y-2"
                   >
                     <div className="flex items-start gap-3">
-                      <img
+                      <Image
                         src={face.thumbnailPath}
                         alt={getDisplayName(face)}
+                        width={64}
+                        height={64}
                         className="w-16 h-16 rounded-full object-cover"
                       />
                       <div className="flex-1 min-w-0">
@@ -289,9 +292,11 @@ const FaceFilterBar = ({
               }`}
               title={getDisplayName(face)}
             >
-              <img
+              <Image
                 src={face.thumbnailPath}
                 alt={getDisplayName(face)}
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded-full object-cover"
               />
               <span className="text-xs font-medium truncate max-w-[64px]">

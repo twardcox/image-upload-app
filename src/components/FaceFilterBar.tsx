@@ -102,10 +102,18 @@ const FaceFilterBar = ({
   const handleTriggerDetection = async () => {
     setIsDetecting(true);
     try {
+      // Fetch all image IDs for the current user
+      const imagesResponse = await fetch('/api/images?limit=1000');
+      if (!imagesResponse.ok) throw new Error('Failed to fetch images');
+      const imagesData = await imagesResponse.json();
+      const imageIds: string[] = (imagesData.images ?? []).map((img: { id: string }) => img.id);
+
+      if (imageIds.length === 0) return;
+
       const response = await fetch('/api/faces/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'all' }),
+        body: JSON.stringify({ imageIds }),
       });
 
       if (response.ok) {

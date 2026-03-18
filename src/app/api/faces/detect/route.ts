@@ -67,9 +67,13 @@ export async function POST(request: Request) {
     const results = await Promise.allSettled(
       images.map(async (image) => {
         try {
-          // Read image file
-          const imagePath = join(process.cwd(), 'public', image.filepath);
+          // Read image file (normalize leading slash for cross-platform safety)
+          const normalizedFilepath = image.filepath.replace(/^\/+/, '');
+          const imagePath = join(process.cwd(), 'public', normalizedFilepath);
           const imageBuffer = await readFile(imagePath);
+
+          // Clear existing face records to avoid duplicates on re-run
+          await prisma.imageFace.deleteMany({ where: { imageId: image.id } });
 
           // Process faces
           await processImageForFaces(image.id, imageBuffer);

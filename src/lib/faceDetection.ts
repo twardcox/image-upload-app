@@ -1,6 +1,6 @@
 // Face Detection Service using face-api.js
 import * as faceapi from 'face-api.js';
-import { Canvas, Image, ImageData } from 'canvas';
+import { Canvas, Image, ImageData, loadImage } from 'canvas';
 import sharp from 'sharp';
 import { join } from 'path';
 import { writeFile, mkdir } from 'fs/promises';
@@ -11,7 +11,7 @@ let environmentPatched = false;
 const MODEL_PATH = join(process.cwd(), 'public', 'models');
 const FACE_THUMBNAIL_DIR = join(process.cwd(), 'public', 'faces');
 const FACE_SIMILARITY_THRESHOLD = 0.6; // Euclidean distance threshold for clustering
-const MIN_DETECTION_CONFIDENCE = 0.5; // Minimum confidence for face detection
+const MIN_DETECTION_CONFIDENCE = 0.3; // Minimum confidence for face detection
 const DESCRIPTOR_UPDATE_WEIGHT = 0.2; // Weight for updating cluster descriptors with new faces
 
 // Clustering statistics
@@ -62,13 +62,12 @@ export async function detectFaces(imageBuffer: Buffer) {
   await loadModels();
 
   try {
-    // Convert buffer to Image using node-canvas
-    const img = new Image();
-    img.src = imageBuffer;
+    // Convert buffer to Image using node-canvas (loadImage is async and ensures full decode)
+    const img = await loadImage(imageBuffer);
 
     // Detect faces with landmarks and descriptors
     const detections = await faceapi
-      .detectAllFaces(img as unknown as HTMLImageElement, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+      .detectAllFaces(img as unknown as HTMLImageElement, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
       .withFaceLandmarks()
       .withFaceDescriptors();
 
@@ -305,38 +304,54 @@ export async function processImageForFaces(imageId: string, imageBuffer: Buffer)
 
     // Process each detected face
     for (const face of faces) {
-      // Cluster face to find or create Face record (with confidence filtering)
-      const faceId = await clusterFace(face.descriptor, face.confidence);
+      try {
+        // Cluster face to find or create Face record (with confidence filtering)
+        const faceId = await clusterFace(face.descriptor, face.confidence);
 
-      // Skip if face was rejected due to low confidence
-      if (!faceId) {
-        rejectedCount++;
-        continue;
-      }
+        // Skip if face was rejected due to low confidence
+        if (!faceId) {
+          rejectedCount++;
+          continue;
+        }
 
-      processedCount++;
+        processedCount++;
 
-      // Extract and save thumbnail
-      await extractFaceThumbnail(imageBuffer, face.box, faceId);
+        // Extract and save thumbnail
+        await extractFaceThumbnail(imageBuffer, face.box, faceId);
 
-      // Create ImageFace relationship
-      await prisma.imageFace.create({
-        data: {
-          imageId,
-          faceId,
-          boundingBox: {
-            x: face.box.x,
-            y: face.box.y,
-            width: face.box.width,
-            height: face.box.height,
+        // Upsert relationship so repeated detections in the same image don't crash processing
+        await prisma.imageFace.upsert({
+          where: {
+            imageId_faceId: {
+              imageId,
+              faceId,
+            },
           },
-          confidence: face.confidence,
-        },
-      });
+          create: {
+            imageId,
+            faceId,
+            boundingBox: {
+              x: face.box.x,
+              y: face.box.y,
+              width: face.box.width,
+              height: face.box.height,
+            },
+            confidence: face.confidence,
+          },
+          update: {
+            boundingBox: {
+              x: face.box.x,
+              y: face.box.y,
+              width: face.box.width,
+              height: face.box.height,
+            },
+            confidence: face.confidence,
+          },
+        });
+      } catch (faceError) {
+        console.error(`Failed to process a detected face for image ${imageId}:`, faceError);
+      }
     }
-
-    // Update face image counts
-    await updateFaceImageCounts();
 
     console.log(
       `✓ Face processing complete for image ${imageId}: ${processedCount} processed, ${rejectedCount} rejected`
@@ -344,6 +359,8 @@ export async function processImageForFaces(imageId: string, imageBuffer: Buffer)
   } catch (error) {
     console.error(`Face processing failed for image ${imageId}:`, error);
     // Don't throw - we don't want face detection failures to fail the upload
+  } finally {
+    await updateFaceImageCounts();
   }
 }
 

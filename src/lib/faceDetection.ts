@@ -10,8 +10,13 @@ let modelsLoaded = false;
 let environmentPatched = false;
 const MODEL_PATH = join(process.cwd(), 'public', 'models');
 const FACE_THUMBNAIL_DIR = join(process.cwd(), 'public', 'faces');
-const FACE_SIMILARITY_THRESHOLD = 0.6; // Euclidean distance threshold for clustering
-const MIN_DETECTION_CONFIDENCE = 0.3; // Minimum confidence for face detection
+const FACE_SIMILARITY_THRESHOLD = 0.66; // Slightly more lenient to collapse duplicate clusters of the same person
+const MIN_DETECTION_CONFIDENCE = 0.55; // Reject weak detections that tend to be false positives
+const MIN_FACE_SIZE_PX = 64;
+const MIN_FACE_SIZE_RATIO = 0.05;
+const FACE_EDGE_MARGIN_PX = 8;
+const MIN_FACE_ASPECT_RATIO = 0.6;
+const MAX_FACE_ASPECT_RATIO = 1.4;
 const DESCRIPTOR_UPDATE_WEIGHT = 0.2; // Weight for updating cluster descriptors with new faces
 
 // Clustering statistics
@@ -64,19 +69,54 @@ export async function detectFaces(imageBuffer: Buffer) {
   try {
     // Convert buffer to Image using node-canvas (loadImage is async and ensures full decode)
     const img = await loadImage(imageBuffer);
+    const minFaceSize = Math.max(
+      MIN_FACE_SIZE_PX,
+      Math.round(Math.min(img.width, img.height) * MIN_FACE_SIZE_RATIO)
+    );
 
     // Detect faces with landmarks and descriptors
     const detections = await faceapi
-      .detectAllFaces(img as unknown as HTMLImageElement, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+      .detectAllFaces(
+        img as unknown as HTMLImageElement,
+        new faceapi.SsdMobilenetv1Options({ minConfidence: MIN_DETECTION_CONFIDENCE })
+      )
       .withFaceLandmarks()
       .withFaceDescriptors();
 
-    return detections.map((detection) => ({
-      box: detection.detection.box,
-      landmarks: detection.landmarks,
-      descriptor: Array.from(detection.descriptor), // Convert Float32Array to regular array
-      confidence: detection.detection.score,
-    }));
+    return detections
+      .filter((detection) => {
+        const box = detection.detection.box;
+        const smallestSide = Math.min(box.width, box.height);
+        const aspectRatio = box.width / box.height;
+        const touchesImageEdge =
+          box.x <= FACE_EDGE_MARGIN_PX ||
+          box.y <= FACE_EDGE_MARGIN_PX ||
+          box.x + box.width >= img.width - FACE_EDGE_MARGIN_PX ||
+          box.y + box.height >= img.height - FACE_EDGE_MARGIN_PX;
+
+        if (smallestSide < minFaceSize) {
+          return false;
+        }
+
+        if (
+          aspectRatio < MIN_FACE_ASPECT_RATIO ||
+          aspectRatio > MAX_FACE_ASPECT_RATIO
+        ) {
+          return false;
+        }
+
+        if (touchesImageEdge) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((detection) => ({
+        box: detection.detection.box,
+        landmarks: detection.landmarks,
+        descriptor: Array.from(detection.descriptor), // Convert Float32Array to regular array
+        confidence: detection.detection.score,
+      }));
   } catch (error) {
     console.error('Face detection error:', error);
     return [];

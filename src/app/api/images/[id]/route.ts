@@ -51,7 +51,7 @@ export async function GET(
         height: image.height,
         createdAt: image.createdAt,
         updatedAt: image.updatedAt,
-        tags: image.tags.map((t) => t.tag),
+        tags: image.tags.map((t: any) => t.tag),
       },
     });
   } catch (error) {
@@ -196,7 +196,7 @@ export async function PUT(
         height: updatedImage!.height,
         createdAt: updatedImage!.createdAt,
         updatedAt: updatedImage!.updatedAt,
-        tags: updatedImage!.tags.map((t) => t.tag),
+        tags: updatedImage!.tags.map((t: any) => t.tag),
       },
     });
   } catch (error) {

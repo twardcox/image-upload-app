@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     // Check authentication
     const session = await auth();
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      tags: tags.map((tag) => ({
+      tags: tags.map((tag: any) => ({
         id: tag.id,
         name: tag.name,
         imageCount: tag._count.images,

@@ -123,8 +123,8 @@ export async function POST(request: Request) {
       },
     }, { status: 201 });
 
-  } catch (error) {
-    console.error('Upload error:', error);
+  } catch (_error) {
+    console.error('Upload error:', _error);
     return NextResponse.json(
       { error: 'An error occurred during upload' },
       { status: 500 }

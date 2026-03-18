@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {
+    const where: Record<string, unknown> = {
       userId: session.user.id,
     };
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      images: images.map((image) => ({
+      images: images.map((image: any) => ({
         id: image.id,
         filename: image.filename,
         originalName: image.originalName,
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
         width: image.width,
         height: image.height,
         createdAt: image.createdAt,
-        tags: image.tags.map((t) => t.tag),
+        tags: image.tags.map((t: any) => t.tag),
       })),
       pagination: {
         page,

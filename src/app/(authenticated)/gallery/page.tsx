@@ -82,6 +82,7 @@ const GalleryPage = () => {
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
+  const [faceRefreshKey, setFaceRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
@@ -178,6 +179,7 @@ const GalleryPage = () => {
   const handleUploadSuccess = () => {
     setIsUploadDialogOpen(false);
     fetchImages();
+    setFaceRefreshKey((prev) => prev + 1);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -278,6 +280,7 @@ const GalleryPage = () => {
           selectedFaceIds={selectedFaceIds}
           onFaceSelect={handleFaceSelect}
           onFacesChange={handleFacesChange}
+          refreshKey={faceRefreshKey}
         />
       </div>
 

@@ -27,12 +27,14 @@ interface FaceFilterBarProps {
   selectedFaceIds: string[];
   onFaceSelect: (faceId: string) => void;
   onFacesChange: () => void;
+  refreshKey?: number;
 }
 
 const FaceFilterBar = ({
   selectedFaceIds,
   onFaceSelect,
   onFacesChange,
+  refreshKey,
 }: FaceFilterBarProps) => {
   const REQUEST_TIMEOUT_MS = 30000;
   const DETECTION_TIMEOUT_MS = 180000;
@@ -83,6 +85,31 @@ const FaceFilterBar = ({
   useEffect(() => {
     fetchFaces();
   }, []);
+
+  useEffect(() => {
+    fetchFaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (refreshKey === undefined) return;
+
+    // Background detection can finish after upload completes.
+    // Re-fetch shortly after upload so new faces appear automatically.
+    const shortTimer = setTimeout(() => {
+      fetchFaces();
+    }, 3000);
+
+    const longTimer = setTimeout(() => {
+      fetchFaces();
+    }, 10000);
+
+    return () => {
+      clearTimeout(shortTimer);
+      clearTimeout(longTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const handleNameUpdate = async () => {
     if (!editingFace) return;

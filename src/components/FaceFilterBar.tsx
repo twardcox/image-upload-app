@@ -52,6 +52,13 @@ const FaceFilterBar = ({
     init?: RequestInit,
     timeoutMs: number = REQUEST_TIMEOUT_MS
   ) => {
+    if (timeoutMs <= 0) {
+      return fetch(input, {
+        cache: 'no-store',
+        ...init,
+      });
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -69,13 +76,18 @@ const FaceFilterBar = ({
   const fetchFaces = async () => {
     setIsLoading(true);
     try {
-      const response = await fetchWithTimeout('/api/faces?limit=100');
+      // Polling/refresh fetches should not timeout aggressively.
+      const response = await fetchWithTimeout('/api/faces?limit=100', undefined, 0);
       const data = await response.json();
 
       if (response.ok) {
         setFaces(data.faces);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+
       console.error('Failed to fetch faces:', error);
     } finally {
       setIsLoading(false);

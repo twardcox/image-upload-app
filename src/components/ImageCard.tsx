@@ -46,9 +46,10 @@ interface ImageData {
 interface ImageCardProps {
   image: ImageData;
   onDelete?: () => void;
+  eagerLoad?: boolean;
 }
 
-const ImageCard = ({ image, onDelete }: ImageCardProps) => {
+const ImageCard = ({ image, onDelete, eagerLoad = false }: ImageCardProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
 
@@ -162,6 +163,8 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
             src={imageSrc}
             alt={image.originalName}
             fill
+            loading={eagerLoad ? 'eager' : 'lazy'}
+            priority={eagerLoad}
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />

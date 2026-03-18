@@ -35,7 +35,7 @@ const LoginPage = () => {
         router.push('/gallery');
         router.refresh();
       }
-    } catch (_error) {
+    } catch {
       setError('An error occurred during login');
     } finally {
       setIsLoading(false);

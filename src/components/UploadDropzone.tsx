@@ -68,7 +68,7 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
         fileInputRef.current.value = '';
       }
       onUploadSuccess?.();
-    } catch (_error) {
+    } catch {
       setError('An error occurred during upload');
     } finally {
       setIsUploading(false);

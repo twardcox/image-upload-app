@@ -104,7 +104,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
       } else {
         alert('Failed to delete image');
       }
-    } catch (error) {
+    } catch {
       alert('An error occurred while deleting the image');
     } finally {
       setIsDeleting(false);
@@ -123,7 +123,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
+    } catch {
       alert('Failed to download image');
     }
   };
@@ -165,7 +165,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
       } else {
         alert('Failed to update tags');
       }
-    } catch (error) {
+    } catch {
       alert('An error occurred while updating tags');
     }
   };

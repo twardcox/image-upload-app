@@ -55,7 +55,7 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
       } else {
         alert('Failed to delete image');
       }
-    } catch (_error) {
+    } catch {
       alert('An error occurred while deleting the image');
     } finally {
       setIsDeleting(false);
@@ -74,7 +74,7 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (_error) {
+    } catch {
       alert('Failed to download image');
     }
   };

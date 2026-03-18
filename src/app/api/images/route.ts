@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -18,13 +19,13 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '12');
     const search = searchParams.get('search') || '';
     const tagIds = searchParams.get('tags')?.split(',').filter(Boolean) || [];
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const sortBy = (searchParams.get('sortBy') || 'createdAt') as keyof Prisma.ImageOrderByWithRelationInput;
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as Prisma.SortOrder;
 
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: Record<string, unknown> = {
+    const where: Prisma.ImageWhereInput = {
       userId: session.user.id,
     };
 
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      images: images.map((image: any) => ({
+      images: images.map((image) => ({
         id: image.id,
         filename: image.filename,
         originalName: image.originalName,
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
         width: image.width,
         height: image.height,
         createdAt: image.createdAt,
-        tags: image.tags.map((t: any) => t.tag),
+        tags: image.tags.map((t) => t.tag),
       })),
       pagination: {
         page,

@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     // Check authentication
     const session = await auth();
     if (!session?.user?.id) {
@@ -51,7 +54,7 @@ export async function GET(
         height: image.height,
         createdAt: image.createdAt,
         updatedAt: image.updatedAt,
-        tags: image.tags.map((t: any) => t.tag),
+        tags: image.tags.map((t) => t.tag),
       },
     });
   } catch (error) {
@@ -64,10 +67,12 @@ export async function GET(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     // Check authentication
     const session = await auth();
     if (!session?.user?.id) {
@@ -122,9 +127,11 @@ export async function DELETE(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     // Check authentication
     const session = await auth();
     if (!session?.user?.id) {
@@ -196,7 +203,7 @@ export async function PUT(
         height: updatedImage!.height,
         createdAt: updatedImage!.createdAt,
         updatedAt: updatedImage!.updatedAt,
-        tags: updatedImage!.tags.map((t: any) => t.tag),
+        tags: updatedImage!.tags.map((t) => t.tag),
       },
     });
   } catch (error) {

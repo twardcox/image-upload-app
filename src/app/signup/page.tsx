@@ -77,7 +77,7 @@ const SignupPage = () => {
         router.push('/gallery');
         router.refresh();
       }
-    } catch (_error) {
+    } catch {
       setError('An error occurred during signup');
     } finally {
       setIsLoading(false);

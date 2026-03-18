@@ -1,25 +1,7 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-
-const LogoutButton = () => {
-  return (
-    <form action="/api/auth/signout" method="POST">
-      <Button type="submit" variant="ghost" className="w-full justify-start">
-        Logout
-      </Button>
-    </form>
-  );
-};
+import { UserMenu } from '@/components/user-menu';
 
 const AuthenticatedLayout = async ({
   children,
@@ -39,22 +21,7 @@ const AuthenticatedLayout = async ({
           <Link href="/gallery" className="text-2xl font-bold">
             Image Gallery
           </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost">
-                {session.user?.name || session.user?.email}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/gallery">Gallery</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <LogoutButton />
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <UserMenu user={session.user} />
         </div>
       </header>
       <main className="container mx-auto px-4 py-8">{children}</main>

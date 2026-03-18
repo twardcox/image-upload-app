@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '12');
     const search = searchParams.get('search') || '';
     const tagIds = searchParams.get('tags')?.split(',').filter(Boolean) || [];
+    const faceIds = searchParams.get('faces')?.split(',').filter(Boolean) || [];
     const sortBy = (searchParams.get('sortBy') || 'createdAt') as keyof Prisma.ImageOrderByWithRelationInput;
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as Prisma.SortOrder;
     
@@ -48,6 +49,17 @@ export async function GET(request: Request) {
         some: {
           tagId: {
             in: tagIds,
+          },
+        },
+      };
+    }
+
+    // Face filter
+    if (faceIds.length > 0) {
+      where.faces = {
+        some: {
+          faceId: {
+            in: faceIds,
           },
         },
       };

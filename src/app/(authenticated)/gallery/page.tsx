@@ -19,6 +19,7 @@ import ImageCard from '@/components/ImageCard';
 import MetadataFiltersComponent, {
   MetadataFilters,
 } from '@/components/MetadataFilters';
+import FaceFilterBar from '@/components/FaceFilterBar';
 
 interface Tag {
   id: string;
@@ -66,6 +67,7 @@ const GalleryPage = () => {
   const [images, setImages] = useState<ImageData[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
+  const [selectedFaceIds, setSelectedFaceIds] = useState<string[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
     limit: 12,
@@ -97,6 +99,11 @@ const GalleryPage = () => {
 
       if (selectedTags.length > 0) {
         params.append('tags', selectedTags.join(','));
+      }
+
+      // Add face filter
+      if (selectedFaceIds.length > 0) {
+        params.append('faces', selectedFaceIds.join(','));
       }
 
       // Add metadata filters
@@ -159,7 +166,7 @@ const GalleryPage = () => {
   useEffect(() => {
     fetchImages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, search, selectedTags, metadataFilters]);
+  }, [pagination.page, search, selectedTags, selectedFaceIds, metadataFilters]);
 
   useEffect(() => {
     fetchTags();
@@ -189,6 +196,19 @@ const GalleryPage = () => {
   const handleMetadataFiltersChange = (newFilters: MetadataFilters) => {
     setMetadataFilters(newFilters);
     setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleFaceSelect = (faceId: string) => {
+    setSelectedFaceIds((prev) =>
+      prev.includes(faceId)
+        ? prev.filter((id) => id !== faceId)
+        : [...prev, faceId]
+    );
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleFacesChange = () => {
+    fetchImages();
   };
 
   return (
@@ -249,6 +269,13 @@ const GalleryPage = () => {
           filters={metadataFilters}
           onChange={handleMetadataFiltersChange}
           cameras={cameras}
+        />
+
+        {/* Face Filter Bar */}
+        <FaceFilterBar
+          selectedFaceIds={selectedFaceIds}
+          onFaceSelect={handleFaceSelect}
+          onFacesChange={handleFacesChange}
         />
       </div>
 

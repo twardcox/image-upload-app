@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       // Continue even if EXIF extraction fails
     }
 
-    // Process image with sharp
+    // Process image with sharp (preserve original orientation on upload).
     let processedImage = sharp(buffer);
     const metadata = await processedImage.metadata();
 

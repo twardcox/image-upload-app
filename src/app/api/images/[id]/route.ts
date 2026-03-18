@@ -108,7 +108,8 @@ export async function DELETE(
 
     // Delete file from disk
     try {
-      const filePath = join(process.cwd(), 'public', image.filepath);
+      const relativePath = image.filepath.replace(/^\/+/, '');
+      const filePath = join(process.cwd(), 'public', relativePath);
       await unlink(filePath);
     } catch (error) {
       console.error('Error deleting file:', error);

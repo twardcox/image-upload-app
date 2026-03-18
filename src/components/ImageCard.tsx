@@ -29,6 +29,7 @@ interface ImageData {
   width: number | null;
   height: number | null;
   createdAt: string;
+  updatedAt?: string;
   tags?: Tag[];
   // EXIF metadata
   dateTaken?: string | null;
@@ -49,6 +50,30 @@ interface ImageCardProps {
 
 const ImageCard = ({ image, onDelete }: ImageCardProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleRotate = async (direction: 'left' | 'right') => {
+    setIsRotating(true);
+    try {
+      const response = await fetch(`/api/images/${image.id}/rotate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        onDelete?.();
+      } else {
+        alert(data.error || 'Failed to rotate image');
+      }
+    } catch {
+      alert('An error occurred while rotating the image');
+    } finally {
+      setIsRotating(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this image?')) {
@@ -127,12 +152,16 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
     image.gpsLatitude
   );
 
+  const imageSrc = `${image.filepath}?v=${new Date(
+    image.updatedAt || image.createdAt
+  ).getTime()}`;
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <Link href={`/images/${image.id}`}>
         <CardContent className="p-0 relative aspect-square">
           <Image
-            src={image.filepath}
+            src={imageSrc}
             alt={image.originalName}
             fill
             className="object-cover"
@@ -159,8 +188,20 @@ const ImageCard = ({ image, onDelete }: ImageCardProps) => {
                 Download
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => handleRotate('left')}
+                disabled={isRotating || isDeleting}
+              >
+                {isRotating ? 'Rotating...' : 'Rotate Left'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleRotate('right')}
+                disabled={isRotating || isDeleting}
+              >
+                {isRotating ? 'Rotating...' : 'Rotate Right'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={handleDelete}
-                disabled={isDeleting}
+                disabled={isDeleting || isRotating}
                 className="text-red-600"
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}

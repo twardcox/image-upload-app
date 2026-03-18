@@ -32,43 +32,78 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      await uploadFile(files[0]);
+      await uploadFiles(files);
     }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      await uploadFile(files[0]);
+      await uploadFiles(Array.from(files));
     }
   };
 
   const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/images/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || `Upload failed for ${file.name}`);
+    }
+  };
+
+  const uploadFiles = async (files: File[]) => {
     setError('');
     setSuccess('');
     setIsUploading(true);
 
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      setError('No valid image files selected');
+      setIsUploading(false);
+      return;
+    }
+
+    let successCount = 0;
+    const failedFiles: string[] = [];
+
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/images/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Upload failed');
-        return;
+      for (const file of imageFiles) {
+        try {
+          await uploadFile(file);
+          successCount += 1;
+        } catch {
+          failedFiles.push(file.name);
+        }
       }
 
-      setSuccess(`${file.name} uploaded successfully!`);
+      if (successCount > 0 && failedFiles.length === 0) {
+        setSuccess(
+          successCount === 1
+            ? `${imageFiles[0].name} uploaded successfully!`
+            : `${successCount} images uploaded successfully!`
+        );
+      } else if (successCount > 0 && failedFiles.length > 0) {
+        setSuccess(`${successCount} images uploaded successfully.`);
+        setError(`Failed to upload: ${failedFiles.join(', ')}`);
+      } else {
+        setError('All uploads failed. Please try again.');
+      }
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      onUploadSuccess?.();
+
+      if (successCount > 0) {
+        onUploadSuccess?.();
+      }
     } catch {
       setError('An error occurred during upload');
     } finally {
@@ -95,6 +130,7 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={handleFileSelect}
           className="hidden"
@@ -103,16 +139,16 @@ const UploadDropzone = ({ onUploadSuccess }: UploadDropzoneProps) => {
           <div className="text-4xl">📷</div>
           <div>
             <Lead className="font-medium text-foreground">Drag and drop your image here</Lead>
-            <Muted>or click the button below to select a file</Muted>
+            <Muted>or click the button below to select one or more files</Muted>
           </div>
           <Button
             type="button"
             onClick={handleButtonClick}
             disabled={isUploading}
           >
-            {isUploading ? 'Uploading...' : 'Select Image'}
+            {isUploading ? 'Uploading...' : 'Select Images'}
           </Button>
-          <Muted className="text-xs">Supports: JPEG, PNG, WebP, GIF (Max 10MB)</Muted>
+          <Muted className="text-xs">Supports: JPEG, PNG, WebP, GIF (Max 10MB each)</Muted>
         </div>
       </div>
 

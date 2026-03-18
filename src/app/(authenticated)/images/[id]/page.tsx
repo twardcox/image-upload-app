@@ -46,6 +46,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState('');
@@ -126,6 +127,29 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
       document.body.removeChild(a);
     } catch {
       alert('Failed to download image');
+    }
+  };
+
+  const handleRotate = async (direction: 'left' | 'right') => {
+    setIsRotating(true);
+    try {
+      const response = await fetch(`/api/images/${params.id}/rotate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setImage((prev) => (prev ? { ...prev, ...data.image } : prev));
+      } else {
+        alert(data.error || 'Failed to rotate image');
+      }
+    } catch {
+      alert('An error occurred while rotating the image');
+    } finally {
+      setIsRotating(false);
     }
   };
 
@@ -221,11 +245,25 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
           <Button variant="outline">← Back to Gallery</Button>
         </Link>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleRotate('left')}
+            disabled={isRotating}
+          >
+            Rotate Left
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleRotate('right')}
+            disabled={isRotating}
+          >
+            Rotate Right
+          </Button>
           <Button onClick={handleDownload}>Download</Button>
           <Button
             variant="destructive"
             onClick={handleDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || isRotating}
           >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
@@ -236,7 +274,7 @@ const ImageDetailPage = ({ params }: { params: { id: string } }) => {
         <Card>
           <CardContent className="p-0 relative aspect-square">
             <Image
-              src={image.filepath}
+              src={`${image.filepath}?v=${new Date(image.updatedAt).getTime()}`}
               alt={image.originalName}
               fill
               className="object-contain"

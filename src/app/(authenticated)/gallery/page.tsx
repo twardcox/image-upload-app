@@ -38,6 +38,7 @@ interface ImageData {
   width: number | null;
   height: number | null;
   createdAt: string;
+  updatedAt: string;
   tags?: Tag[];
   // EXIF metadata
   dateTaken?: string | null;
@@ -224,8 +225,8 @@ const GalleryPage = () => {
             <DialogHeader>
               <DialogTitle>Upload New Image</DialogTitle>
               <DialogDescription>
-                Upload a new image to your gallery. Supports JPEG, PNG, WebP,
-                and GIF formats.
+                Upload one or more images to your gallery. Supports JPEG, PNG,
+                WebP, and GIF formats.
               </DialogDescription>
             </DialogHeader>
             <UploadDropzone onUploadSuccess={handleUploadSuccess} />

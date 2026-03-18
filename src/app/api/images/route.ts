@@ -133,6 +133,7 @@ export async function GET(request: Request) {
         width: image.width,
         height: image.height,
         createdAt: image.createdAt,
+        updatedAt: image.updatedAt,
         tags: image.tags.map((t) => t.tag),
         // EXIF metadata
         dateTaken: image.dateTaken,

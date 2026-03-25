@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { reclusterAllFaces } from '@/lib/faceDetection';
+import { DEFAULT_RECLUSTER_THRESHOLD, reclusterAllFaces } from '@/lib/faceDetection';
 
 /**
  * POST /api/faces/recluster
  * Trigger re-clustering of all faces to merge similar clusters
  * 
  * Body:
- * - threshold?: number (optional custom similarity threshold, default 0.6)
+ * - threshold?: number (optional custom similarity threshold, default from face pipeline)
  */
 export async function POST(request: Request) {
   try {
@@ -34,14 +34,15 @@ export async function POST(request: Request) {
     }
 
     // Run re-clustering
-    const result = await reclusterAllFaces(threshold);
+    const effectiveThreshold = threshold ?? DEFAULT_RECLUSTER_THRESHOLD;
+    const result = await reclusterAllFaces(effectiveThreshold, session.user.id);
 
     return NextResponse.json({
       message: 'Face re-clustering completed',
       result: {
         mergedClusters: result.merged,
         remainingClusters: result.clusters,
-        thresholdUsed: threshold || 0.6,
+        thresholdUsed: effectiveThreshold,
       },
     });
   } catch (error) {

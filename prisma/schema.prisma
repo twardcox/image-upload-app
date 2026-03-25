@@ -132,7 +132,7 @@ model ImageTag {
 model Face {
   id             String   @id @default(cuid())
   name           String?  // User-provided label for the person
-  faceDescriptor Json     // 128D face descriptor array from face-api.js for clustering
+  faceDescriptor Json     // Face embedding vector used for clustering
   thumbnailPath  String   // Path to cropped face thumbnail image
   imageCount     Int      @default(0) // Cached count of images containing this face
   createdAt      DateTime @default(now())

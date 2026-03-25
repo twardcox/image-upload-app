@@ -1,21 +1,18 @@
-// Face Detection Service using face-api.js
-import * as faceapi from 'face-api.js';
-import { Canvas, Image, ImageData, loadImage } from 'canvas';
 import sharp from 'sharp';
-import { join } from 'path';
 import { prisma } from '@/lib/prisma';
+import { detectFacesWithCompreFace } from '@/lib/compreface';
 
 let modelsLoaded = false;
-let environmentPatched = false;
-const MODEL_PATH = join(process.cwd(), 'public', 'models');
-const FACE_SIMILARITY_THRESHOLD = 0.66; // Slightly more lenient to collapse duplicate clusters of the same person
-const MIN_DETECTION_CONFIDENCE = 0.55; // Reject weak detections that tend to be false positives
-const MIN_FACE_SIZE_PX = 64;
-const MIN_FACE_SIZE_RATIO = 0.05;
-const FACE_EDGE_MARGIN_PX = 8;
-const MIN_FACE_ASPECT_RATIO = 0.6;
-const MAX_FACE_ASPECT_RATIO = 1.4;
+const FACE_SIMILARITY_THRESHOLD = 0.60; // Merge clusters of same person from different angles/lighting/expressions
+const MIN_DETECTION_CONFIDENCE = 0.4; // Improve recall for side-profile and low-contrast faces
+const MIN_FACE_SIZE_PX = 48;
+const MIN_FACE_SIZE_RATIO = 0.035;
+const FACE_EDGE_MARGIN_PX = 2;
+const MIN_FACE_ASPECT_RATIO = 0.5;
+const MAX_FACE_ASPECT_RATIO = 1.8;
 const DESCRIPTOR_UPDATE_WEIGHT = 0.2; // Weight for updating cluster descriptors with new faces
+
+export const DEFAULT_RECLUSTER_THRESHOLD = FACE_SIMILARITY_THRESHOLD;
 
 // Clustering statistics
 let clusteringStats = {
@@ -26,36 +23,12 @@ let clusteringStats = {
 };
 
 /**
- * Initialize face-api.js environment for Node.js
- */
-function initializeEnvironment() {
-  if (environmentPatched) return;
-  // Patch face-api.js to use node-canvas
-  // @ts-expect-error - face-api.js types don't include monkeyPatch
-  faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
-  environmentPatched = true;
-}
-
-/**
- * Load face-api.js models (only loads once)
+ * Keep compatibility with existing call sites.
+ * CompreFace is an external service, so there are no local model files to load.
  */
 export async function loadModels() {
   if (modelsLoaded) return;
-
-  initializeEnvironment();
-
-  try {
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_PATH),
-      faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_PATH),
-      faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_PATH),
-    ]);
-    modelsLoaded = true;
-    console.log('✓ Face detection models loaded successfully');
-  } catch (error) {
-    console.error('Failed to load face detection models:', error);
-    throw new Error('Face detection models not available');
-  }
+  modelsLoaded = true;
 }
 
 /**
@@ -65,32 +38,35 @@ export async function detectFaces(imageBuffer: Buffer) {
   await loadModels();
 
   try {
-    // Convert buffer to Image using node-canvas (loadImage is async and ensures full decode)
-    const img = await loadImage(imageBuffer);
+    const metadata = await sharp(imageBuffer).metadata();
+
+    if (!metadata.width || !metadata.height) {
+      return [];
+    }
+
+    const imageWidth = metadata.width;
+    const imageHeight = metadata.height;
+
     const minFaceSize = Math.max(
       MIN_FACE_SIZE_PX,
-      Math.round(Math.min(img.width, img.height) * MIN_FACE_SIZE_RATIO)
+      Math.round(Math.min(imageWidth, imageHeight) * MIN_FACE_SIZE_RATIO)
     );
 
-    // Detect faces with landmarks and descriptors
-    const detections = await faceapi
-      .detectAllFaces(
-        img as unknown as HTMLImageElement,
-        new faceapi.SsdMobilenetv1Options({ minConfidence: MIN_DETECTION_CONFIDENCE })
-      )
-      .withFaceLandmarks()
-      .withFaceDescriptors();
+    const detections = await detectFacesWithCompreFace(
+      imageBuffer,
+      MIN_DETECTION_CONFIDENCE
+    );
 
     return detections
       .filter((detection) => {
-        const box = detection.detection.box;
+        const box = detection.box;
         const smallestSide = Math.min(box.width, box.height);
         const aspectRatio = box.width / box.height;
         const touchesImageEdge =
           box.x <= FACE_EDGE_MARGIN_PX ||
           box.y <= FACE_EDGE_MARGIN_PX ||
-          box.x + box.width >= img.width - FACE_EDGE_MARGIN_PX ||
-          box.y + box.height >= img.height - FACE_EDGE_MARGIN_PX;
+          box.x + box.width >= imageWidth - FACE_EDGE_MARGIN_PX ||
+          box.y + box.height >= imageHeight - FACE_EDGE_MARGIN_PX;
 
         if (smallestSide < minFaceSize) {
           return false;
@@ -107,18 +83,65 @@ export async function detectFaces(imageBuffer: Buffer) {
           return false;
         }
 
+        if (!hasReliableLandmarks(detection.landmarks, box)) {
+          return false;
+        }
+
         return true;
       })
       .map((detection) => ({
-        box: detection.detection.box,
+        box: detection.box,
         landmarks: detection.landmarks,
-        descriptor: Array.from(detection.descriptor), // Convert Float32Array to regular array
-        confidence: detection.detection.score,
+        descriptor: detection.descriptor,
+        confidence: detection.confidence,
       }));
   } catch (error) {
     console.error('Face detection error:', error);
     return [];
   }
+}
+
+function toNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is number => typeof item === 'number');
+}
+
+function isLandmarkInOrNearBox(
+  landmark: number[],
+  box: { x: number; y: number; width: number; height: number }
+): boolean {
+  if (landmark.length < 2) return false;
+
+  const [x, y] = landmark;
+  const marginX = box.width * 0.15;
+  const marginY = box.height * 0.15;
+
+  return (
+    x >= box.x - marginX &&
+    x <= box.x + box.width + marginX &&
+    y >= box.y - marginY &&
+    y <= box.y + box.height + marginY
+  );
+}
+
+function hasReliableLandmarks(
+  landmarks: number[][] | undefined,
+  box: { x: number; y: number; width: number; height: number }
+): boolean {
+  // Accept if landmarks exist and are reasonably aligned.
+  // CompreFace should have already filtered bad detections.
+  if (!landmarks || landmarks.length === 0) {
+    return true;
+  }
+
+  if (landmarks.length < 5) {
+    return true;
+  }
+
+  const validPoints = landmarks.filter((point) => isLandmarkInOrNearBox(point, box));
+
+  // Require at least some (50%) landmarks to align.
+  return validPoints.length >= Math.ceil(landmarks.length * 0.5);
 }
 
 /**
@@ -179,7 +202,6 @@ export function resetClusteringStats() {
 export async function clusterFace(
   descriptor: number[],
   confidence: number = 1.0,
-  excludedFaceIds: string[] = [],
   userId?: string
 ) {
   clusteringStats.totalDetections++;
@@ -195,6 +217,20 @@ export async function clusterFace(
 
   // Normalize descriptor for consistent comparison
   const normalizedDescriptor = normalizeDescriptor(descriptor);
+
+  if (normalizedDescriptor.length === 0) {
+    clusteringStats.newClusters++;
+
+    const newFace = await prisma.face.create({
+      data: {
+        faceDescriptor: [],
+        thumbnailPath: '/api/faces/pending/thumbnail',
+        imageCount: 0,
+      },
+    });
+
+    return newFace.id;
+  }
 
   // Get existing faces for this user only (via ImageFace -> Image ownership)
   const existingFaces = await prisma.face.findMany({
@@ -220,11 +256,12 @@ export async function clusterFace(
   let closestFace: { id: string; distance: number; imageCount: number } | null = null;
 
   for (const face of existingFaces) {
-    if (excludedFaceIds.includes(face.id)) {
+    const existingDescriptor = normalizeDescriptor(toNumberArray(face.faceDescriptor));
+
+    if (existingDescriptor.length === 0) {
       continue;
     }
 
-    const existingDescriptor = normalizeDescriptor(face.faceDescriptor as number[]);
     const distance = euclideanDistance(normalizedDescriptor, existingDescriptor);
 
     if (
@@ -247,7 +284,11 @@ export async function clusterFace(
     // Give more weight to the existing descriptor if the cluster has many images
     const existingFace = existingFaces.find((f) => f.id === closestFace!.id);
     if (existingFace) {
-      const existingNormalized = normalizeDescriptor(existingFace.faceDescriptor as number[]);
+      const existingNormalized = normalizeDescriptor(toNumberArray(existingFace.faceDescriptor));
+
+      if (existingNormalized.length === 0) {
+        return closestFace.id;
+      }
       
       // Weight decreases as cluster grows (more stable clusters change less)
       const updateWeight = Math.min(
@@ -375,16 +416,17 @@ export async function processImageForFaces(
     for (const face of faces) {
       try {
         // Cluster face to find or create Face record (with confidence filtering)
-        const faceId = await clusterFace(
-          face.descriptor,
-          face.confidence,
-          Array.from(assignedFaceIdsInImage),
-          userId
-        );
+        const faceId = await clusterFace(face.descriptor, face.confidence, userId);
 
         // Skip if face was rejected due to low confidence
         if (!faceId) {
           rejectedCount++;
+          continue;
+        }
+
+        if (assignedFaceIdsInImage.has(faceId)) {
+          // We currently store one relation per face per image.
+          // Keep the first assignment and ignore additional duplicate detections.
           continue;
         }
 
@@ -469,13 +511,25 @@ export async function updateFaceImageCounts() {
  * This is useful after manual corrections or to improve clustering over time
  */
 export async function reclusterAllFaces(
-  mergeThreshold: number = FACE_SIMILARITY_THRESHOLD
+  mergeThreshold: number = FACE_SIMILARITY_THRESHOLD,
+  userId?: string
 ): Promise<{ merged: number; clusters: number }> {
   try {
     console.log('Starting face re-clustering...');
 
     // Get all face clusters
     const allFaces = await prisma.face.findMany({
+      where: userId
+        ? {
+            images: {
+              some: {
+                image: {
+                  userId,
+                },
+              },
+            },
+          }
+        : undefined,
       select: {
         id: true,
         faceDescriptor: true,
@@ -492,39 +546,106 @@ export async function reclusterAllFaces(
     }
 
     let mergedCount = 0;
-    const processedIds = new Set<string>();
-    const clustersToMerge: Array<{ targetId: string; sourceIds: string[] }> = [];
 
-    // Find clusters that should be merged
-    for (let i = 0; i < allFaces.length; i++) {
-      const face1 = allFaces[i];
-      
-      if (processedIds.has(face1.id)) continue;
+    // Build descriptor lookup once so grouping is deterministic and order-independent.
+    const descriptorById = new Map<string, number[]>();
+    for (const face of allFaces) {
+      const descriptor = normalizeDescriptor(toNumberArray(face.faceDescriptor));
+      if (descriptor.length > 0) {
+        descriptorById.set(face.id, descriptor);
+      }
+    }
 
-      const desc1 = normalizeDescriptor(face1.faceDescriptor as number[]);
-      const similarFaces: string[] = [];
+    const ids = Array.from(descriptorById.keys());
+    const parent = new Map<string, string>();
 
-      for (let j = i + 1; j < allFaces.length; j++) {
-        const face2 = allFaces[j];
-        
-        if (processedIds.has(face2.id)) continue;
+    console.log(
+      `Re-clustering with ${ids.length} clusters, threshold: ${mergeThreshold.toFixed(3)}`
+    );
 
-        const desc2 = normalizeDescriptor(face2.faceDescriptor as number[]);
+    const find = (id: string): string => {
+      const currentParent = parent.get(id);
+      if (!currentParent || currentParent === id) {
+        parent.set(id, id);
+        return id;
+      }
+
+      const root = find(currentParent);
+      parent.set(id, root);
+      return root;
+    };
+
+    const union = (a: string, b: string) => {
+      const rootA = find(a);
+      const rootB = find(b);
+
+      if (rootA !== rootB) {
+        parent.set(rootB, rootA);
+      }
+    };
+
+    for (const id of ids) {
+      parent.set(id, id);
+    }
+
+    // Connect any pair of clusters under threshold, then merge connected components.
+    let matchCount = 0;
+    const distances: number[] = [];
+
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const id1 = ids[i];
+        const id2 = ids[j];
+        const desc1 = descriptorById.get(id1)!;
+        const desc2 = descriptorById.get(id2)!;
+
         const distance = euclideanDistance(desc1, desc2);
+        distances.push(distance);
 
         if (distance < mergeThreshold) {
-          similarFaces.push(face2.id);
-          processedIds.add(face2.id);
+          union(id1, id2);
+          matchCount++;
+          console.log(
+            `  Match: ${id1.slice(0, 8)} <-> ${id2.slice(0, 8)} (distance: ${distance.toFixed(4)})`
+          );
         }
       }
+    }
 
-      if (similarFaces.length > 0) {
-        clustersToMerge.push({
-          targetId: face1.id,
-          sourceIds: similarFaces,
-        });
-        processedIds.add(face1.id);
+    console.log(
+      `Compared ${ids.length * (ids.length - 1) / 2} pairs: ${matchCount} matched. Min distance: ${Math.min(...distances).toFixed(4)}, Max: ${Math.max(...distances).toFixed(4)}`
+    );
+
+    const groups = new Map<string, string[]>();
+    for (const id of ids) {
+      const root = find(id);
+      const members = groups.get(root) ?? [];
+      members.push(id);
+      groups.set(root, members);
+    }
+
+    const faceById = new Map(allFaces.map((face) => [face.id, face]));
+    const clustersToMerge: Array<{ targetId: string; sourceIds: string[] }> = [];
+
+    for (const members of groups.values()) {
+      if (members.length < 2) {
+        continue;
       }
+
+      const sortedMembers = members
+        .map((id) => faceById.get(id))
+        .filter((face): face is NonNullable<typeof face> => !!face)
+        .sort((a, b) => b.imageCount - a.imageCount);
+
+      if (sortedMembers.length < 2) {
+        continue;
+      }
+
+      const [target, ...sources] = sortedMembers;
+      clustersToMerge.push({
+        targetId: target.id,
+        sourceIds: sources.map((source) => source.id),
+      });
     }
 
     // Perform merges

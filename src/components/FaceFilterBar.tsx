@@ -46,6 +46,7 @@ const FaceFilterBar = ({
   const [editName, setEditName] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isMergingByName, setIsMergingByName] = useState(false);
 
   const fetchWithTimeout = async (
     input: RequestInfo | URL,
@@ -196,6 +197,31 @@ const FaceFilterBar = ({
     }
   };
 
+  const handleMergeAllByName = async () => {
+    if (!confirm('Merge all faces with the same name? This cannot be undone.')) return;
+
+    setIsMergingByName(true);
+    try {
+      const response = await fetchWithTimeout('/api/faces/merge-all-by-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Merge result:', data);
+        await fetchFaces();
+        onFacesChange();
+      } else {
+        console.error('Merge failed:', await response.json());
+      }
+    } catch (error) {
+      console.error('Failed to merge faces by name:', error);
+    } finally {
+      setIsMergingByName(false);
+    }
+  };
+
   const getDisplayName = (face: Face) => {
     return face.name || 'Unknown';
   };
@@ -270,6 +296,14 @@ const FaceFilterBar = ({
                 <DialogDescription>
                   Name faces, merge duplicates, or delete face clusters.
                 </DialogDescription>
+                <Button
+                  size="sm"
+                  onClick={handleMergeAllByName}
+                  disabled={isMergingByName}
+                  className="mt-3 w-full"
+                >
+                  {isMergingByName ? 'Merging...' : 'Merge All Same Names'}
+                </Button>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 mt-4">
                 {faces.map((face) => (

@@ -6,6 +6,41 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### CompreFace Requirements
+
+This app uses CompreFace for face detection and embeddings.
+
+Required environment variables:
+
+- `COMPREFACE_BASE_URL` (example: `http://localhost:8000`)
+- `COMPREFACE_DETECTION_API_KEY` (API key from CompreFace Face Detection service)
+
+Local self-hosted setup (Docker):
+
+1. Start CompreFace from the bundled official release files:
+
+```bash
+cd infra/compreface
+docker compose up -d
+```
+
+2. Open `http://localhost:8000/login` and sign up.
+3. Create an application.
+4. Create a Face Detection service and copy its API key.
+5. Set `COMPREFACE_DETECTION_API_KEY` in `.env` and restart this app.
+
+Useful CompreFace commands:
+
+```bash
+cd infra/compreface
+docker compose ps
+docker compose logs -f
+docker compose stop
+docker compose start
+```
+
+Make sure CompreFace is running and reachable before triggering face detection.
+
 First, run the development server:
 
 ```bash
